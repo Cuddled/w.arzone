@@ -1,7 +1,7 @@
 /**
  * @name Marble Glass
  * @author Cuddled
- * @version 0.1.0
+ * @version 0.1.1
  * @description White marble and translucent pearl glass, matching Marble Glass for Revenge.
  * @source https://github.com/Cuddled/w.arzone
  * @website https://github.com/Cuddled/w.arzone
@@ -9,8 +9,9 @@
 
 /* Adjust these values here, or override them in Vencord QuickCSS. */
 :root {
-  --mg-marble: url("https://raw.githubusercontent.com/Cuddled/w.arzone/main/assets/marble.jpg");
+  --mg-marble: url("https://raw.githubusercontent.com/Cuddled/w.arzone/main/assets/marble-desktop.jpg");
   --mg-panel-alpha: 0.30;
+  --mg-sidebar-alpha: 0.16;
   --mg-floating-alpha: 0.72;
   --mg-profile-tint: 55%;
   --mg-blur: 12px;
@@ -98,7 +99,16 @@
   [class^="sidebar_"], [class^="sidebarList_"], [class^="sidebarRegionScroller_"],
   [class^="membersWrap_"], [class^="members_"], [class^="privateChannels_"]
 ) {
-  background: rgba(255, 255, 255, var(--mg-panel-alpha)) !important;
+  background: rgba(255, 255, 255, var(--mg-sidebar-alpha)) !important;
+}
+/* Nested sidebar surfaces must not stack their own opaque fills. */
+#app-mount :is([class^="sidebar_"], [class^="sidebarList_"])
+:is([class^="privateChannels_"], [class^="sidebarList_"], [class^="scroller_"], [class^="scrollerBase_"], [class^="header_"]) {
+  background: transparent !important;
+}
+#app-mount :is([class^="privateChannels_"], [class^="membersWrap_"])
+:is([class^="scroller_"], [class^="members_"]) {
+  background: transparent !important;
 }
 #app-mount :is([class^="member_"], [class^="guilds_"]) {
   background: transparent !important;
@@ -200,5 +210,5 @@
   border-radius: 12px;
 }
 @media (prefers-reduced-transparency: reduce) {
-  :root { --mg-panel-alpha: 0.88; --mg-floating-alpha: 0.95; --mg-blur: 0px; }
+  :root { --mg-sidebar-alpha: 0.88; --mg-panel-alpha: 0.88; --mg-floating-alpha: 0.95; --mg-blur: 0px; }
 }
