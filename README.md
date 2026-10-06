@@ -14,7 +14,7 @@ This is a JS-only Next plugin, packaged using the current [official plugin manif
 
 ## Compatibility and validation
 
-Version 0.1.0 is an initial release. The loader contract, API calls and repository schema were checked against Revenge Next source (bundle commit `481056836bb9682b82945e58d7f2e672ffcf9717`, plugin CLI commit `b41bab26bbc446e450673f8a24fb986b469d1e29`). Automated mocked lifecycle checks cover load, color resolution, background wrapping, settings and restoration when stopped. **No Android device test has been performed.** Discord's internal tokens change between builds; the plugin reports a missing resolver rather than silently presenting a broken theme. Native screens and hardcoded colors may remain unchanged.
+Version 0.1.1 fixes the DM sticker greeting crash by keeping all Discord token overrides in six-digit hex and applying transparency only to React Native view styles. The loader contract, API calls and repository schema were checked against Revenge Next source (bundle commit `481056836bb9682b82945e58d7f2e672ffcf9717`, plugin CLI commit `b41bab26bbc446e450673f8a24fb986b469d1e29`). Automated mocked lifecycle checks cover load, color resolution, background wrapping, settings and restoration when stopped. **No Android device test has been performed.** Discord's internal tokens change between builds; the plugin reports a missing resolver rather than silently presenting a broken theme. Native screens and hardcoded colors may remain unchanged.
 
 This recreates Liquid Glass's translucent appearance using React Native: it does not provide Apple's native refraction or live backdrop blur. Dialogs retain more white tint for readability. Text, attachments and images keep full opacity. Danger and status colors stay distinct.
 
@@ -28,7 +28,7 @@ node --check build/index.js
 node tests/lifecycle.cjs
 ```
 
-`pool/cuddled.marble-glass@0.1.0.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. Retain old pool ZIPs and their index entries when adding versions; this initial packager produces the single current version only.
+`pool/cuddled.marble-glass@0.1.1.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. The packager preserves historical index entries; retain the existing pool ZIPs when publishing updates.
 
 ## Privacy
 

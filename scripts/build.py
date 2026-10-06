@@ -46,5 +46,15 @@ config = {
         }}
     }}
 }
+# Retain historical entries so existing installs have a complete update history.
+index_path = root/'index.json'
+if index_path.exists():
+    previous = json.loads(index_path.read_text())
+    for plugin_id, old_plugin in previous.get('plugins', {}).items():
+        if plugin_id in config['plugins']:
+            current = config['plugins'][plugin_id]
+            current['versions'] = {**old_plugin.get('versions', {}), **current['versions']}
+        else:
+            config['plugins'][plugin_id] = old_plugin
 (root/'index.json').write_text(json.dumps(config, indent=2)+'\n')
 print(f'Built {filename}: {len(blob):,} bytes, SHA-256 {hashlib.sha256(blob).hexdigest()}')

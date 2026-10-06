@@ -21,7 +21,25 @@
   function keep(fn) { if (typeof fn === "function") cleanups.push(fn); }
   function notify() { listeners.forEach(function (fn) { fn(); }); }
   function rgba(alpha) { return "rgba(255,255,255," + alpha + ")"; }
-  function surface(level) { return rgba(Math.min(0.96, opacity + level)); }
+  // Discord helpers require six-digit hex. Apply alpha only at RN style boundaries.
+  function surface(level) {
+    if (level >= 0.58) return "#fdfdfe";
+    if (level >= 0.16) return "#e9e9ee";
+    if (level >= 0.08) return "#efeff2";
+    return "#f5f5f7";
+  }
+  function nativeSurface(color) {
+    switch (color) {
+      case "#f5f5f7": return rgba(opacity);
+      case "#efeff2": return rgba(Math.min(0.96, opacity + 0.08));
+      case "#e9e9ee": return rgba(Math.min(0.96, opacity + 0.16));
+      case "#fdfdfe": return rgba(Math.min(0.96, opacity + 0.58));
+      case "#d0d1d3": return "rgba(20,22,28,0.22)";
+      case "#e6e6eb": return "rgba(40,42,48,0.09)";
+      case "#e3e3e8": return "rgba(35,37,43,0.045)";
+      default: return undefined;
+    }
+  }
 
   function semantic(name) {
     if (typeof name !== "string") return undefined;
@@ -34,17 +52,17 @@
       if (/SECONDARY|NORMAL|DEFAULT/.test(name)) return "#454850";
       return "#1d1f24";
     }
-    if (/^(BG_BACKDROP|BACKGROUND_BACKDROP)/.test(name)) return "rgba(20,22,28,0.22)";
+    if (/^(BG_BACKDROP|BACKGROUND_BACKDROP)/.test(name)) return "#d0d1d3";
     if (/^(BG_|BACKGROUND_|CHAT_BACKGROUND|CHANNELTEXTAREA_BACKGROUND|MODAL_BACKGROUND)/.test(name)) {
-      if (/MENTION/.test(name)) return "rgba(40,42,48,0.09)";
-      if (/MODIFIER|MOD_(FAINT|SUBTLE|STRONG)/.test(name)) return "rgba(35,37,43,0.045)";
+      if (/MENTION/.test(name)) return "#e6e6eb";
+      if (/MODIFIER|MOD_(FAINT|SUBTLE|STRONG)/.test(name)) return "#e3e3e8";
       if (/FLOATING|OVERLAY|MODAL/.test(name)) return surface(0.58);
       if (/RAISED|TERTIARY|SECONDARY_ALT/.test(name)) return surface(0.16);
       if (/SECONDARY|CHANNELTEXTAREA/.test(name)) return surface(0.08);
       return surface(0);
     }
-    if (/BORDER|DIVIDER|SEPARATOR/.test(name)) return "rgba(35,37,43,0.10)";
-    if (/SCROLLBAR/.test(name)) return "rgba(35,37,43,0.20)";
+    if (/BORDER|DIVIDER|SEPARATOR/.test(name)) return "#dadbe0";
+    if (/SCROLLBAR/.test(name)) return "#bcbec4";
     return undefined;
   }
 
@@ -184,18 +202,25 @@
     if (!RN || !hooks || typeof hooks.beforeJSX !== "function") return;
     function before(args) {
       var props = args[1];
-      if (!enabled || !glassEdges || !props || props.__marbleGlass || !props.style) return args;
-      var style = RN.StyleSheet.flatten(props.style);
-      if (!style || !style.backgroundColor || typeof style.borderRadius !== "number" || style.borderRadius < 8) return args;
-      // Decorate existing rounded neutral panels only; never alter layout or images.
-      var color = String(style.backgroundColor);
-      if (!/^rgba\(255,\s*255,\s*255,/.test(color)) return args;
-      var next = Object.assign({}, props, { style: [props.style, {
-        borderColor: "rgba(255,255,255,0.78)", borderWidth: style.borderWidth || 0.75
-      }] });
-      return [args[0], next, args[2]];
+      if (!enabled || !props || props.__marbleGlass) return args;
+      var next;
+      ["style", "contentContainerStyle"].forEach(function (key) {
+        if (!props[key]) return;
+        var style = RN.StyleSheet.flatten(props[key]);
+        if (!style || typeof style.backgroundColor !== "string") return;
+        var nativeColor = nativeSurface(style.backgroundColor.toLowerCase());
+        if (nativeColor === undefined) return;
+        var overrides = { backgroundColor: nativeColor };
+        if (glassEdges && typeof style.borderRadius === "number" && style.borderRadius >= 8) {
+          overrides.borderColor = "rgba(255,255,255,0.78)";
+          overrides.borderWidth = style.borderWidth || 0.75;
+        }
+        if (!next) next = Object.assign({}, props);
+        next[key] = [props[key], overrides];
+      });
+      return next ? [args[0], next, args[2]] : args;
     }
-    [RN.View, RN.Pressable, RN.TextInput].forEach(function (type) {
+    [RN.View, RN.Pressable, RN.TextInput, RN.ScrollView].forEach(function (type) {
       if (type) keep(hooks.beforeJSX(type, before));
     });
     viewInstalled = true;
