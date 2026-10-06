@@ -4,7 +4,8 @@
   var MARBLE_URI = "__MARBLE_URI__";
   var enabled = false;
   var opacity = 0.38;
-  var lightAppearance = false;
+  var lightTokenSeen = false;
+  var lastResolverTheme;
   var marble = true;
   var glassEdges = true;
   var settingsStore;
@@ -67,7 +68,7 @@
     diagnosticsInstalled = true;
   }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.3.0", lightAppearance: lightAppearance,
+    var report = JSON.stringify({ pluginVersion: "0.3.1", observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -122,10 +123,10 @@
     return "rgba(" + c.r + "," + c.g + "," + c.b + "," + alpha + ")";
   }
   function renderSurfaceProps(type, props) {
-    if (!enabled || !lightAppearance || !props || props.__marbleGlass) return props;
+    if (!enabled || !props || props.__marbleGlass) return props;
     var name = typeof type === "string" ? type : type && (type.displayName || type.name);
     // Restrict changes to leaf renderers observed on-device, not Discord color helpers.
-    if (!name || !/^(RCTView|ReanimatedView|ClipView|RNLinearGradient|RNSScreen|RNSScreenContentWrapper|RNSScreenStackHeaderConfig|DCDChat)$/.test(name)) return props;
+    if (!name || !/^(RCTView|ReanimatedView|ClipView|RNLinearGradient|RNSScreen|RNSScreenContentWrapper|RNSScreenStackHeaderConfig|DCDChat|MessagesConnected|NavTTIView|DCDChatList|ProfileBanner)$/.test(name)) return props;
     var next;
     function put(key, value) { if (!next) next = Object.assign({}, props); next[key] = value; }
     var RN = revenge.react.ReactNative;
@@ -135,7 +136,8 @@
       if (!style || style.backgroundColor === undefined) return;
       var c = colorParts(style.backgroundColor);
       if (!c || c.a === 0) return;
-      var big = style.flex === 1 || style.flexGrow === 1 || style.height === "100%" ||
+      var chat = /^(DCDChat|MessagesConnected|NavTTIView|DCDChatList)$/.test(name);
+      var big = chat || style.flex === 1 || style.flexGrow === 1 || style.height === "100%" ||
         typeof style.height === "number" && style.height > 180 ||
         style.position === "absolute" && style.top === 0 && style.bottom === 0;
       var neutral = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < 18;
@@ -143,8 +145,7 @@
       var background = mapped;
       // Profile colors keep their RGB; only the alpha of broad surfaces is capped.
       if (background === undefined && (big || neutral && Math.min(c.r, c.g, c.b) >= 220)) {
-        if (neutral && big && Math.max(c.r, c.g, c.b) < 75) background = rgba(opacity);
-        else background = tintAlpha(style.backgroundColor, big ? Math.max(opacity, 0.55) : opacity);
+        background = tintAlpha(style.backgroundColor, chat ? opacity : big ? Math.max(opacity, 0.55) : opacity);
       }
       if (background !== undefined && background !== style.backgroundColor)
         put(key, [props[key], { backgroundColor: background }]);
@@ -155,7 +156,10 @@
     }
     ["backgroundColor", "largeTitleBackgroundColor"].forEach(function (key) {
       if (props[key] !== undefined) {
-        var color = tintAlpha(props[key], opacity);
+        var original = props[key];
+        if (name === "ProfileBanner" && key === "backgroundColor" && typeof original === "number" && original >= 0 && original <= 0xffffff)
+          original = "#" + original.toString(16).padStart(6, "0");
+        var color = tintAlpha(original, name === "ProfileBanner" ? Math.max(opacity, 0.55) : opacity);
         if (color !== props[key]) put(key, color);
       }
     });
@@ -217,8 +221,9 @@
       if (typeof parent.resolveSemanticColor !== "function") return;
       keep(revenge.patcher.instead(parent, "resolveSemanticColor", function (args, orig) {
         var theme = args[0];
-        if (typeof theme === "string") lightAppearance = theme === "light";
-        if (enabled && lightAppearance) {
+        if (typeof theme === "string") { lastResolverTheme = theme; if (theme === "light") lightTokenSeen = true; }
+        // Theme is local to this resolver call. A profile cannot change app-wide gating.
+        if (enabled && theme === "light") {
           var name = semanticName(args[1], definitions);
           var color = semantic(name);
           if (color !== undefined) return color;
@@ -296,7 +301,7 @@
     if (!RN || !hooks || typeof hooks.beforeJSX !== "function") return;
     function before(args) {
       var props = args[1];
-      if (!enabled || !lightAppearance || !props || props.__marbleGlass) return args;
+      if (!enabled || !props || props.__marbleGlass) return args;
       var next;
       ["style", "contentContainerStyle"].forEach(function (key) {
         if (!props[key]) return;

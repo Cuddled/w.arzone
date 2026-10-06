@@ -30,7 +30,7 @@ node --check build/index.js
 node tests/lifecycle.cjs
 ```
 
-`pool/cuddled.marble-glass@0.3.0.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. The packager preserves historical index entries; retain the existing pool ZIPs when publishing updates.
+`pool/cuddled.marble-glass@0.3.1.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. The packager preserves historical index entries; retain the existing pool ZIPs when publishing updates.
 
 ## Privacy
 
@@ -43,3 +43,7 @@ No message access, analytics, network requests, permissions prompts or credentia
 ## 0.3.0 surface rendering
 
 Device-reported animated views, screen header backgrounds and native gradients now receive alpha at their rendering boundary. Broad custom-colored surfaces and gradient stops retain RGB values; text, username gradients, avatars and attachments are not faded. Native DCDChat internal background coverage is still unverified: the initial diagnostic report hit its sample limit before chat was captured. Appearance reports now omit text/icon entries and collect up to 300 samples.
+
+## 0.3.1
+
+Surface transparency no longer depends on the last semantic resolver theme (profiles use their own theme). Observed MessagesConnected, DCDChat and NavTTIView backgrounds now receive explicit alpha. Profile banner 24-bit RGB colors are handled separately from native ARGB colors. Dark custom profile RGB colors remain dark rather than being replaced with white. Tested with report-derived fixtures; Android visual verification is pending.

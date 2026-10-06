@@ -93,7 +93,7 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   const secondPass = React.createElement('RNLinearGradient', gradient.props);
   assert.equal(secondPass.props.colors[0], gradient.props.colors[0], 'do not compound alpha');
   const native = React.createElement('ReanimatedView', { style: { flex: 1, backgroundColor: '#1d1f24' } });
-  assert.equal(native.props.style[1].backgroundColor, 'rgba(255,255,255,0.12)', 'opaque screen base removed');
+  assert.equal(native.props.style[1].backgroundColor, 'rgba(29,31,36,0.55)', 'retain dark profile hues');
   const custom = React.createElement('RCTView', { style: { flex: 1, backgroundColor: '#664488' } });
   assert.equal(custom.props.style[1].backgroundColor, 'rgba(102,68,136,0.55)');
   const textStyle = Object.freeze({ color: '#ffffff', backgroundColor: '#664488' });
@@ -105,6 +105,22 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   const header = React.createElement('RNSScreenStackHeaderConfig', { backgroundColor: '#ffffff', color: '#70737a' });
   assert.equal(header.props.backgroundColor, 'rgba(255,255,255,0.12)');
   assert.equal(header.props.color, '#70737a');
+  // Replay the report: a custom/dark profile is rendered after a light chat.
+  resolver.resolveSemanticColor('dark', colorToken);
+  for (const name of ['DCDChat', 'MessagesConnected', 'NavTTIView']) {
+    const frozen = Object.freeze({ backgroundColor: '#fbfbfb' });
+    const chat = React.createElement(name, { style: frozen, channelId: 'original' });
+    assert.equal(chat.props.style[1].backgroundColor, 'rgba(251,251,251,0.12)', 'profile theme cannot disable chat transparency');
+    assert.equal(chat.props.channelId, 'original');
+    assert.equal(frozen.backgroundColor, '#fbfbfb');
+  }
+  const tintedChat = React.createElement('DCDChat', { style: { backgroundColor: '#ffffffcc' } });
+  assert.equal(tintedChat.props.style[1].backgroundColor, 'rgba(255,255,255,0.12)');
+  const profile = React.createElement('RNLinearGradient', { colors: ['rgba(255, 219, 238, 1)', 'rgba(0, 0, 0, 1)'] });
+  assert.equal(profile.props.colors[0], 'rgba(255,219,238,0.55)');
+  assert.equal(profile.props.colors[1], 'rgba(0,0,0,0.55)');
+  const banner = React.createElement('ProfileBanner', { backgroundColor: 16754133 });
+  assert.equal(banner.props.backgroundColor, 'rgba(255,165,213,0.55)', '24-bit profile banner color preserved');
   React.createElement('DCDChat', { messageContent: 'PRIVATE MESSAGE', userId: 'PRIVATE ID', theme: { backgroundColor: '#f5f5f7' } });
   React.createElement('ProfileGradient', { colors: ['#664488', '#cc4499'], username: 'PRIVATE NAME' });
   const diagnosticSettings = options.SettingsComponent().props.children[0];
