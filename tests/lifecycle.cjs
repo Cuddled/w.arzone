@@ -128,6 +128,17 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   assert.ok(copiedReport.includes('#664488'), 'retain exact custom gradient colors in report');
   assert.ok(copiedReport.includes('theme.backgroundColor'));
   assert.ok(!copiedReport.includes('PRIVATE'), 'exclude personal field values');
+  function Background() {}
+  const sheetProps = Object.freeze({ animatedIndex: {}, animatedPosition: {}, style: { position: 'absolute', height: 600, borderRadius: 24, backgroundColor: '#ffffff' } });
+  const sheet = React.createElement(Background, sheetProps);
+  assert.notEqual(sheet.type, Background, 'modal background receives its own marble');
+  const backing = sheet.type(sheet.props);
+  assert.equal(backing.props.style[1].backgroundColor, '#f7f7f8', 'opaque backing blocks previous chat');
+  assert.equal(backing.props.children[0].type, 'Image');
+  assert.equal(backing.props.children[1].type, Background, 'original animated background retained');
+  assert.equal(backing.props.children[1].props.animatedIndex, sheetProps.animatedIndex);
+  assert.equal(backing.props.children[1].props.style[1].backgroundColor, 'rgba(255,255,255,0.12)');
+  assert.equal(React.createElement(Background, { style: {} }).type, Background, 'unrelated Background is unchanged');
   options.stop(api);
   assert.equal(resolver.resolveSemanticColor, originalResolver, 'resolver restored');
   assert.equal(AppRegistry.registerComponent, originalRegister, 'app registration restored');

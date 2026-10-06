@@ -9,7 +9,7 @@
       "author": "Cuddled",
       "icon": "PaletteIcon",
       "channels": {
-        "latest": "0.3.1"
+        "latest": "0.3.2"
       },
       "versions": {
         "0.1.0": {
@@ -81,6 +81,19 @@
           "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.marble-glass@0.3.1.zip",
           "sha256": "75a7dafc769f8c842a064feb9fcc8a757ad16961cd7859a2a1e713f7de01f479",
           "size": 44861,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.3.2": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.marble-glass@0.3.2.zip",
+          "sha256": "8efd5adba6e6a1040d95c08070fe388d8a18e897da4256683dbbf55522811552",
+          "size": 45187,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"

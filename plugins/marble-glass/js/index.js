@@ -21,6 +21,7 @@
   var cleanups = [];
   var appearanceSamples = new Map();
   var diagnosticsInstalled = false;
+  var sheetBackgrounds = new Map();
   // Record rendering metadata only: no text, IDs, images, messages or account fields.
   function observeAppearance(type, props) {
     if (!enabled || !props || props.__marbleGlass || appearanceSamples.size >= 300) return;
@@ -58,6 +59,8 @@
         keep(revenge.patcher.instead(parent, key, function (args, original) {
           try {
             observeAppearance(args[0], args[1]);
+            var sheetType = marbleSheetType(args[0], args[1]);
+            if (sheetType !== args[0]) { args = args.slice(); args[0] = sheetType; }
             var transformed = renderSurfaceProps(args[0], args[1]);
             if (transformed !== args[1]) { args = args.slice(); args[1] = transformed; }
           } catch (_) {}
@@ -67,8 +70,33 @@
     });
     diagnosticsInstalled = true;
   }
+  // A modal must obscure the previous screen before adding translucent colors.
+  function marbleSheetType(type, props) {
+    var name = typeof type === "string" ? type : type && (type.displayName || type.name);
+    if (!enabled || !marble || name !== "Background" || !props || props.__marbleGlass ||
+        !("animatedIndex" in props) || !("animatedPosition" in props)) return type;
+    if (!sheetBackgrounds.has(type)) {
+      var Wrapped = function MarbleSheetBackground(props) {
+        var React = revenge.react.React;
+        var RN = revenge.react.ReactNative;
+        if (!enabled || !marble) return React.createElement(type, props);
+        var absolute = { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 };
+        return React.createElement(RN.View, {
+          pointerEvents: "none", __marbleGlass: true,
+          style: [props.style, { backgroundColor: "#f7f7f8", overflow: "hidden" }]
+        }, React.createElement(RN.Image, {
+          source: { uri: MARBLE_URI }, style: absolute, resizeMode: "cover",
+          pointerEvents: "none", accessible: false, __marbleGlass: true
+        }), React.createElement(type, Object.assign({}, props, {
+          __marbleGlass: true, style: [absolute, { backgroundColor: rgba(opacity) }]
+        })));
+      };
+      sheetBackgrounds.set(type, Wrapped);
+    }
+    return sheetBackgrounds.get(type);
+  }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.3.1", observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
+    var report = JSON.stringify({ pluginVersion: "0.3.2", observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -396,7 +424,7 @@
       enabled = false;
       cleanups.splice(0).reverse().forEach(function (fn) { fn(); });
       seenTokens = new WeakSet(); seenRN = new WeakSet(); tokenNames = new WeakMap();
-      resolverInstalled = false; viewInstalled = false; diagnosticsInstalled = false; appearanceSamples.clear();
+      resolverInstalled = false; viewInstalled = false; diagnosticsInstalled = false; appearanceSamples.clear(); sheetBackgrounds.clear();
       activeApi = undefined; settingsStore = undefined;
       notify();
       api.plugin.requireReload();
