@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "cuddled.marble-glass",
+  "name": "Marble Glass",
+  "description": "White marble, fine black veins and translucent pearl glass surfaces. Inspired by iOS Liquid Glass.",
+  "author": "Cuddled",
+  "version": "0.1.0",
+  "icon": "PaletteIcon",
+  "dependencies": {
+    "revenge.api": { "version": ">=1 <2" },
+    "discord": { "version": "*" }
+  },
+  "dist": { "script": "index.js" }
+}
