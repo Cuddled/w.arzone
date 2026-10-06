@@ -47,8 +47,8 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   options.preInit(api);
   await options.init(api);
   options.start(api);
-  assert.equal(resolver.resolveSemanticColor('dark', colorToken), '#f5f5f7');
-  assert.equal(resolver.resolveSemanticColor('dark', dangerToken), '#ff0000', 'danger colors preserved');
+  assert.equal(resolver.resolveSemanticColor('light', colorToken), '#f5f5f7');
+  assert.equal(resolver.resolveSemanticColor('light', dangerToken), '#ff0000', 'danger colors preserved');
   assert.equal(colors.RED_400, '#ff0000', 'raw status colors preserved');
   // Reproduce the sticker greeting's strict hex parser on every overridden token.
   function hexWithOpacity(color, alpha) {
@@ -59,9 +59,14 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
     'BG_SURFACE_OVERLAY','BG_BACKDROP','BACKGROUND_MENTION','BG_MOD_FAINT',
     'BORDER_SUBTLE','SCROLLBAR_THIN_THUMB','TEXT_NORMAL','BUTTON_FILLED_BACKGROUND']) {
     const token = { [Symbol('name')]: name }; definitions[name] = {};
-    hexWithOpacity(resolver.resolveSemanticColor('dark', token), .3);
+    hexWithOpacity(resolver.resolveSemanticColor('light', token), .3);
   }
   for (const name of Object.keys(colors)) hexWithOpacity(colors[name], .3);
+  // Raw palette is shared by text, icons and native screens; never invert WHITE.
+  assert.equal(colors.WHITE, '#ffffff');
+  assert.equal(colors.PRIMARY_600, '#313338');
+  assert.equal(resolver.resolveSemanticColor('dark', colorToken), '#313338', 'dark mode retains readable original colors');
+  assert.equal(resolver.resolveSemanticColor('light', colorToken), '#f5f5f7');
   const App = () => 'discord';
   AppRegistry.registerComponent('Discord', () => App);
   const rootElement = registrations.Discord()({ screen: 1 });
@@ -77,7 +82,7 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   const frozenProps = Object.freeze({ style: Object.freeze({ borderRadius: 16, backgroundColor: '#f5f5f7' }) });
   const transformed = viewHook(['View', frozenProps]);
   assert.notEqual(transformed[1], frozenProps, 'never mutate shared React props');
-  assert.equal(transformed[1].style[1].borderWidth, .75);
+  assert.equal(transformed[1].style[1].borderWidth, 0, 'do not outline every panel');
   assert.equal(transformed[1].style[1].backgroundColor, 'rgba(255,255,255,0.12)');
   options.stop(api);
   assert.equal(resolver.resolveSemanticColor, originalResolver, 'resolver restored');

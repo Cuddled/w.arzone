@@ -3,7 +3,8 @@
   // This is deliberately a single expression: the Next loader evaluates `return <script>`.
   var MARBLE_URI = "__MARBLE_URI__";
   var enabled = false;
-  var opacity = 0.28;
+  var opacity = 0.38;
+  var lightAppearance = false;
   var marble = true;
   var glassEdges = true;
   var settingsStore;
@@ -30,6 +31,9 @@
   }
   function nativeSurface(color) {
     switch (color) {
+      case "#ffffff":
+      case "#f2f3f5":
+      case "#f8f9fa":
       case "#f5f5f7": return rgba(opacity);
       case "#efeff2": return rgba(Math.min(0.96, opacity + 0.08));
       case "#e9e9ee": return rgba(Math.min(0.96, opacity + 0.16));
@@ -44,8 +48,8 @@
   function semantic(name) {
     if (typeof name !== "string") return undefined;
     if (/^(STATUS_|TEXT_(DANGER|WARNING|POSITIVE)|.*(DANGER|WARNING|SUCCESS|RED|GREEN|YELLOW))/.test(name)) return undefined;
-    if (/^(BUTTON|CONTROL).*_(TEXT|ICON)/.test(name)) return "#ffffff";
-    if (/^(BUTTON|CONTROL).*_(BACKGROUND|BG)/.test(name) && !/SECONDARY|OUTLINED/.test(name)) return "#202126";
+    if (/^(BUTTON|CONTROL).*_(TEXT|ICON)/.test(name)) return undefined;
+    if (/^(BUTTON|CONTROL)/.test(name)) return undefined;
     if (/^(TEXT_LINK|TEXT_BRAND|BRAND_)/.test(name)) return "#292b31";
     if (/^(TEXT_|HEADER_|INTERACTIVE_|CHANNELS_|ICON_)/.test(name)) {
       if (/MUTED|DISABLED|PLACEHOLDER/.test(name)) return "#70737a";
@@ -63,19 +67,6 @@
     }
     if (/BORDER|DIVIDER|SEPARATOR/.test(name)) return "#dadbe0";
     if (/SCROLLBAR/.test(name)) return "#bcbec4";
-    return undefined;
-  }
-
-  function raw(name) {
-    if (name === "WHITE") return "#202126";
-    var m = /^(PRIMARY|NEUTRAL)_(\d+)$/.exec(name);
-    if (m) {
-      var n = Number(m[2]);
-      if (n >= 500) return surface(n >= 700 ? 0.08 : 0);
-      if (n >= 300) return "#70737a";
-      return n >= 200 ? "#454850" : "#202126";
-    }
-    if (/^BRAND_\d+$/.test(name)) return "#292b31";
     return undefined;
   }
 
@@ -108,7 +99,9 @@
       patched.add(parent);
       if (typeof parent.resolveSemanticColor !== "function") return;
       keep(revenge.patcher.instead(parent, "resolveSemanticColor", function (args, orig) {
-        if (enabled) {
+        var theme = args[0];
+        if (typeof theme === "string") lightAppearance = theme === "light";
+        if (enabled && lightAppearance) {
           var name = semanticName(args[1], definitions);
           var color = semantic(name);
           if (color !== undefined) return color;
@@ -116,22 +109,6 @@
         return Reflect.apply(orig, this, args);
       }));
       resolverInstalled = true;
-    });
-    var colors = tokens.RawColor;
-    if (!colors) return;
-    Object.keys(colors).forEach(function (name) {
-      if (raw(name) === undefined) return;
-      var descriptor = Object.getOwnPropertyDescriptor(colors, name);
-      if (!descriptor || !descriptor.configurable) return;
-      var original = colors[name];
-      Object.defineProperty(colors, name, {
-        configurable: true, enumerable: descriptor.enumerable,
-        get: function () {
-          if (enabled) return raw(name);
-          return descriptor.get ? descriptor.get.call(colors) : original;
-        }
-      });
-      keep(function () { Object.defineProperty(colors, name, descriptor); });
     });
   }
 
@@ -202,7 +179,7 @@
     if (!RN || !hooks || typeof hooks.beforeJSX !== "function") return;
     function before(args) {
       var props = args[1];
-      if (!enabled || !props || props.__marbleGlass) return args;
+      if (!enabled || !lightAppearance || !props || props.__marbleGlass) return args;
       var next;
       ["style", "contentContainerStyle"].forEach(function (key) {
         if (!props[key]) return;
@@ -212,8 +189,8 @@
         if (nativeColor === undefined) return;
         var overrides = { backgroundColor: nativeColor };
         if (glassEdges && typeof style.borderRadius === "number" && style.borderRadius >= 8) {
-          overrides.borderColor = "rgba(255,255,255,0.78)";
-          overrides.borderWidth = style.borderWidth || 0.75;
+          overrides.borderColor = "rgba(32,33,38,0.08)";
+          overrides.borderWidth = Math.min(style.borderWidth || 0, 0.5);
         }
         if (!next) next = Object.assign({}, props);
         next[key] = [props[key], overrides];
@@ -245,13 +222,13 @@
     function button(label, action) {
       return React.createElement(RN.Pressable, { onPress: action,
         style: { padding: 14, marginVertical: 5, borderRadius: 18,
-          backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 1, borderColor: "#fff" }
+          backgroundColor: "rgba(255,255,255,0.8)", borderWidth: 0.5, borderColor: "rgba(32,33,38,0.10)" }
       }, text(label));
     }
     return React.createElement(Backdrop, null, React.createElement(RN.ScrollView,
       { contentContainerStyle: { padding: 22, paddingBottom: 70 } },
       text("Marble Glass", { fontSize: 30, fontWeight: "700", marginBottom: 8 }),
-      text("Pearl white. Ink veins. Glass everywhere.", { marginBottom: 22, color: "#5b5e66" }),
+      text("Use Discord Appearance → Light for this theme.", { marginBottom: 22, color: "#5b5e66" }),
       text("Glass opacity: " + Math.round(opacity * 100) + "%", { marginBottom: 6 }),
       button("More transparent", function () { return save("opacity", Math.max(0.12, +(opacity - 0.08).toFixed(2))); }),
       button("More frosted", function () { return save("opacity", Math.min(0.76, +(opacity + 0.08).toFixed(2))); }),
