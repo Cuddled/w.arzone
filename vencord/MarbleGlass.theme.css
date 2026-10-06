@@ -1,0 +1,204 @@
+/**
+ * @name Marble Glass
+ * @author Cuddled
+ * @version 0.1.0
+ * @description White marble and translucent pearl glass, matching Marble Glass for Revenge.
+ * @source https://github.com/Cuddled/w.arzone
+ * @website https://github.com/Cuddled/w.arzone
+ */
+
+/* Adjust these values here, or override them in Vencord QuickCSS. */
+:root {
+  --mg-marble: url("https://raw.githubusercontent.com/Cuddled/w.arzone/main/assets/marble.jpg");
+  --mg-panel-alpha: 0.30;
+  --mg-floating-alpha: 0.72;
+  --mg-profile-tint: 55%;
+  --mg-blur: 12px;
+  --mg-radius: 18px;
+  --mg-border: rgba(32, 33, 38, 0.10);
+  --mg-shadow: 0 8px 28px rgba(32, 33, 38, 0.08);
+}
+
+/* The app uses a light palette even when Discord's appearance is dark.
+   Profile theme variables are left intact so custom profile hues survive. */
+#app-mount {
+  color-scheme: light;
+  --background-primary: rgba(255, 255, 255, var(--mg-panel-alpha));
+  --background-secondary: rgba(245, 245, 247, var(--mg-panel-alpha));
+  --background-secondary-alt: rgba(239, 239, 242, 0.38);
+  --background-tertiary: rgba(233, 233, 238, 0.30);
+  --background-floating: rgba(253, 253, 254, var(--mg-floating-alpha));
+  --background-accent: rgba(35, 37, 43, 0.10);
+  --background-nested-floating: rgba(255, 255, 255, 0.48);
+  --background-base-lowest: transparent;
+  --background-base-lower: rgba(255, 255, 255, 0.12);
+  --background-base-low: rgba(255, 255, 255, var(--mg-panel-alpha));
+  --background-surface-high: rgba(255, 255, 255, 0.38);
+  --background-surface-higher: rgba(255, 255, 255, 0.48);
+  --background-surface-highest: rgba(255, 255, 255, 0.64);
+  --bg-base-primary: transparent;
+  --bg-base-secondary: rgba(255, 255, 255, 0.30);
+  --bg-base-tertiary: rgba(255, 255, 255, 0.38);
+  --bg-surface-overlay: rgba(255, 255, 255, var(--mg-floating-alpha));
+  --bg-surface-raised: rgba(255, 255, 255, 0.38);
+  --bg-overlay-chat: transparent;
+  --bg-overlay-1: transparent;
+  --bg-overlay-2: transparent;
+  --bg-overlay-3: transparent;
+  --bg-overlay-4: transparent;
+  --background-modifier-hover: rgba(32, 33, 38, 0.055);
+  --background-modifier-active: rgba(32, 33, 38, 0.085);
+  --background-modifier-selected: rgba(32, 33, 38, 0.11);
+  --background-modifier-accent: rgba(32, 33, 38, 0.08);
+  --background-message-hover: rgba(255, 255, 255, 0.22);
+  --channeltextarea-background: rgba(245, 245, 247, 0.60);
+  --chat-background-default: transparent;
+  --text-normal: #28282d;
+  --text-primary: #28282d;
+  --text-secondary: #454850;
+  --text-muted: #666972;
+  --text-default: #28282d;
+  --text-tertiary: #666972;
+  --header-primary: #1d1f24;
+  --header-secondary: #454850;
+  --interactive-normal: #454850;
+  --interactive-hover: #1d1f24;
+  --interactive-active: #111214;
+  --interactive-muted: #858891;
+  --interactive-icon-default: #454850;
+  --interactive-icon-hover: #1d1f24;
+  --interactive-icon-active: #111214;
+  --channels-default: #595c65;
+  --channel-icon: #595c65;
+  --text-link: #354b91;
+  --input-background: rgba(255, 255, 255, 0.55);
+  --input-border: var(--mg-border);
+  --border-subtle: var(--mg-border);
+  --border-normal: rgba(32, 33, 38, 0.14);
+  --border-strong: rgba(32, 33, 38, 0.22);
+  --scrollbar-thin-thumb: rgba(32, 33, 38, 0.22);
+  --scrollbar-thin-track: transparent;
+  --scrollbar-auto-thumb: rgba(32, 33, 38, 0.22);
+  --scrollbar-auto-track: transparent;
+  background: #f7f7f8 var(--mg-marble) center / cover fixed !important;
+}
+
+/* Reveal one continuous backing across the main app, without fading content. */
+#app-mount :is(
+  [class^="bg_"], [class^="app_"], [class^="appAsidePanelWrapper_"],
+  [class^="baseLayer_"], [class^="layer_"], [class^="layers_"],
+  [class^="chat_"], [class^="chatContent_"], [class^="messagesWrapper_"],
+  [class^="scrollerInner_"], [class^="standardSidebarView_"],
+  [class^="contentRegion_"], [class^="contentRegionScroller_"]
+) {
+  background: transparent !important;
+}
+
+#app-mount :is(
+  [class^="sidebar_"], [class^="sidebarList_"], [class^="sidebarRegionScroller_"],
+  [class^="membersWrap_"], [class^="members_"], [class^="privateChannels_"]
+) {
+  background: rgba(255, 255, 255, var(--mg-panel-alpha)) !important;
+}
+#app-mount :is([class^="member_"], [class^="guilds_"]) {
+  background: transparent !important;
+}
+
+/* Headers and the account panel have glass of their own. */
+#app-mount :is([class^="title_"][class*="container_"], [class^="panels_"]) {
+  background: rgba(255, 255, 255, 0.48) !important;
+  backdrop-filter: blur(var(--mg-blur));
+  -webkit-backdrop-filter: blur(var(--mg-blur));
+  border-color: var(--mg-border) !important;
+  box-shadow: 0 1px 0 var(--mg-border);
+}
+#app-mount [class^="panels_"] {
+  border: 1px solid var(--mg-border);
+  border-radius: var(--mg-radius);
+}
+
+/* Floating input: no opacity on text, icons, attachments or emoji. */
+#app-mount [class^="form_"] {
+  background: transparent !important;
+}
+#app-mount [class^="form_"]::before {
+  background: transparent !important;
+}
+#app-mount :is([class^="channelTextArea_"], [class^="scrollableContainer_"]) {
+  background: rgba(245, 245, 247, 0.52) !important;
+  border-radius: var(--mg-radius);
+}
+#app-mount [class^="channelTextArea_"] {
+  border: 1px solid var(--mg-border);
+  box-shadow: var(--mg-shadow);
+  backdrop-filter: blur(var(--mg-blur));
+  -webkit-backdrop-filter: blur(var(--mg-blur));
+}
+
+/* Popouts and dialogs need opaque marble behind the glass so the previous
+   screen cannot show through as ghost text. Backdrops and banners stay intact. */
+#app-mount :is(
+  [class^="menu_"], [class^="messagesPopoutWrap_"], [class^="recentMentionsPopout_"],
+  [class^="emojiPicker_"], [class^="modal_"][role="dialog"], [class^="root_"][role="dialog"]
+) {
+  background-color: #f7f7f8 !important;
+  background-image: linear-gradient(rgba(255,255,255,var(--mg-floating-alpha)), rgba(255,255,255,var(--mg-floating-alpha))), var(--mg-marble) !important;
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--mg-border);
+  border-radius: var(--mg-radius);
+  box-shadow: var(--mg-shadow);
+}
+
+/* Custom profile hues tint a separate marble backing. Gradient variables are
+   read, never replaced. Both older and newer Discord profile class names. */
+#app-mount :is(
+  [class^="userProfileOuter_"], [class^="userProfileModalOuter_"],
+  [class^="userProfilePopoutOuter_"], [class^="outer_"][class*="user-profile"]
+) {
+  background-color: #f7f7f8 !important;
+  background-image:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--profile-gradient-primary-color, #ffffff) var(--mg-profile-tint), transparent),
+      color-mix(in srgb, var(--profile-gradient-secondary-color, #ffffff) var(--mg-profile-tint), transparent)),
+    var(--mg-marble) !important;
+  background-position: center;
+  background-size: cover;
+  border: 1px solid var(--mg-border);
+  border-radius: var(--mg-radius);
+  box-shadow: var(--mg-shadow);
+}
+#app-mount :is(
+  [class^="userProfileInner_"], [class^="userProfileModalInner_"],
+  [class^="userProfilePopoutInner_"], [class^="inner_"][class*="user-profile"]
+) {
+  background: transparent !important;
+}
+#app-mount :is([class^="outer_"][class*="user-profile"], [class^="userProfileOuter_"], [class^="userProfileModalOuter_"], [class^="userProfilePopoutOuter_"])
+> [class^="inner_"] {
+  background: transparent !important;
+}
+/* Opaque gradient/body fills otherwise conceal the marble underneath. */
+#app-mount :is([class^="userProfileOuter_"], [class^="userProfileModalOuter_"], [class^="userProfilePopoutOuter_"], [class^="outer_"][class*="user-profile"])
+:is([class^="body_"], [class^="overlayBackground_"], [class^="scroller_"], [class^="profileBody_"]) {
+  background-color: transparent !important;
+}
+#app-mount :is([class^="userProfileOuter_"], [class^="userProfileModalOuter_"], [class^="userProfilePopoutOuter_"], [class^="outer_"][class*="user-profile"])
+[class^="overlayBackground_"] {
+  background-color: color-mix(in srgb, var(--profile-body-background-color, #ffffff) 22%, transparent) !important;
+  border-radius: calc(var(--mg-radius) - 4px);
+}
+
+/* Inputs and content cards remain distinct; branding, status, role colors,
+   usernames, media and profile decorations are not recolored. */
+#app-mount :is([class^="input_"], [class^="searchBar_"]) {
+  background-color: rgba(255, 255, 255, 0.48);
+  border-radius: 10px;
+}
+#app-mount [class^="embedFull_"] {
+  background: rgba(255,255,255,0.42);
+  border-radius: 12px;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --mg-panel-alpha: 0.88; --mg-floating-alpha: 0.95; --mg-blur: 0px; }
+}
