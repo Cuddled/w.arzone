@@ -22,9 +22,9 @@
   var diagnosticsInstalled = false;
   // Record rendering metadata only: no text, IDs, images, messages or account fields.
   function observeAppearance(type, props) {
-    if (!enabled || !props || props.__marbleGlass || appearanceSamples.size >= 100) return;
+    if (!enabled || !props || props.__marbleGlass || appearanceSamples.size >= 300) return;
     var name = typeof type === "string" ? type : type && (type.displayName || type.name);
-    if (!name) return;
+    if (!name || /Text|Icon|Image|Profiler|ActivityStatus/.test(name)) return;
     var picked = {};
     function collect(obj, path, depth) {
       if (!obj || typeof obj !== "object" || depth > 3) return;
@@ -36,7 +36,7 @@
           ((typeof value === "string" && /^(#[0-9a-f]{3,8}|rgba?\([\d., %]+\)|transparent|white|black)$/i.test(value)) ||
            typeof value === "number" && Number.isFinite(value))) picked[full] = value;
         else if (Array.isArray(value) && /color/i.test(key)) {
-          var colors = value.filter(function (v) { return typeof v === "number" || typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v); });
+          var colors = value.filter(function (v) { return typeof v === "number" || typeof v === "string" && /^(#[0-9a-f]{3,8}|rgba?\([\d., %]+\))$/i.test(v); });
           if (colors.length) picked[full] = colors.slice(0, 8);
         } else if (key === "style" || key === "contentContainerStyle") {
           collect(revenge.react.ReactNative.StyleSheet.flatten(value), full, depth + 1);
@@ -55,7 +55,11 @@
       ["jsx", "jsxs", "createElement"].forEach(function (key) {
         if (typeof parent[key] !== "function") return;
         keep(revenge.patcher.instead(parent, key, function (args, original) {
-          try { observeAppearance(args[0], args[1]); } catch (_) {}
+          try {
+            observeAppearance(args[0], args[1]);
+            var transformed = renderSurfaceProps(args[0], args[1]);
+            if (transformed !== args[1]) { args = args.slice(); args[1] = transformed; }
+          } catch (_) {}
           return Reflect.apply(original, this, args);
         }));
       });
@@ -63,7 +67,7 @@
     diagnosticsInstalled = true;
   }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.3.0-inspect", lightAppearance: lightAppearance,
+    var report = JSON.stringify({ pluginVersion: "0.3.0", lightAppearance: lightAppearance,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -92,6 +96,70 @@
       case "#e3e3e8": return "rgba(35,37,43,0.045)";
       default: return undefined;
     }
+  }
+
+  function colorParts(value) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      var n = value >>> 0;
+      return { r: (n >>> 16) & 255, g: (n >>> 8) & 255, b: n & 255, a: (n >>> 24) / 255, numeric: true };
+    }
+    if (typeof value !== "string") return undefined;
+    var color = value.trim().toLowerCase();
+    if (color === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+    if (color === "white") color = "#ffffff";
+    if (color === "black") color = "#000000";
+    var m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(color);
+    if (m) { var hex = parseInt(m[1], 16); return { r: (hex >>> 16) & 255, g: (hex >>> 8) & 255, b: hex & 255, a: m[2] ? parseInt(m[2], 16) / 255 : 1 }; }
+    m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(color);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] };
+  }
+  function tintAlpha(value, maxAlpha) {
+    var c = colorParts(value);
+    if (!c || c.a <= maxAlpha) return value;
+    var alpha = Math.min(c.a, maxAlpha);
+    // Native processed colors are ARGB integers. Preserve representation and RGB bits.
+    if (c.numeric) return ((Math.round(alpha * 255) << 24) | (c.r << 16) | (c.g << 8) | c.b) >>> 0;
+    return "rgba(" + c.r + "," + c.g + "," + c.b + "," + alpha + ")";
+  }
+  function renderSurfaceProps(type, props) {
+    if (!enabled || !lightAppearance || !props || props.__marbleGlass) return props;
+    var name = typeof type === "string" ? type : type && (type.displayName || type.name);
+    // Restrict changes to leaf renderers observed on-device, not Discord color helpers.
+    if (!name || !/^(RCTView|ReanimatedView|ClipView|RNLinearGradient|RNSScreen|RNSScreenContentWrapper|RNSScreenStackHeaderConfig|DCDChat)$/.test(name)) return props;
+    var next;
+    function put(key, value) { if (!next) next = Object.assign({}, props); next[key] = value; }
+    var RN = revenge.react.ReactNative;
+    ["style", "contentContainerStyle"].forEach(function (key) {
+      if (!props[key]) return;
+      var style = RN.StyleSheet.flatten(props[key]);
+      if (!style || style.backgroundColor === undefined) return;
+      var c = colorParts(style.backgroundColor);
+      if (!c || c.a === 0) return;
+      var big = style.flex === 1 || style.flexGrow === 1 || style.height === "100%" ||
+        typeof style.height === "number" && style.height > 180 ||
+        style.position === "absolute" && style.top === 0 && style.bottom === 0;
+      var neutral = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < 18;
+      var mapped = typeof style.backgroundColor === "string" ? nativeSurface(style.backgroundColor.toLowerCase()) : undefined;
+      var background = mapped;
+      // Profile colors keep their RGB; only the alpha of broad surfaces is capped.
+      if (background === undefined && (big || neutral && Math.min(c.r, c.g, c.b) >= 220)) {
+        if (neutral && big && Math.max(c.r, c.g, c.b) < 75) background = rgba(opacity);
+        else background = tintAlpha(style.backgroundColor, big ? Math.max(opacity, 0.55) : opacity);
+      }
+      if (background !== undefined && background !== style.backgroundColor)
+        put(key, [props[key], { backgroundColor: background }]);
+    });
+    if (name === "RNLinearGradient" && Array.isArray(props.colors)) {
+      // Do not lower opacity on the whole component: children remain fully opaque.
+      put("colors", props.colors.map(function (color) { return tintAlpha(color, Math.max(opacity, 0.55)); }));
+    }
+    ["backgroundColor", "largeTitleBackgroundColor"].forEach(function (key) {
+      if (props[key] !== undefined) {
+        var color = tintAlpha(props[key], opacity);
+        if (color !== props[key]) put(key, color);
+      }
+    });
+    return next || props;
   }
 
   function semantic(name) {

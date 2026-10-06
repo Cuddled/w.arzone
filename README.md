@@ -30,7 +30,7 @@ node --check build/index.js
 node tests/lifecycle.cjs
 ```
 
-`pool/cuddled.marble-glass@0.2.0.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. The packager preserves historical index entries; retain the existing pool ZIPs when publishing updates.
+`pool/cuddled.marble-glass@0.3.0.zip` contains `manifest.json` and a standalone single-expression `index.js`. `index.json` includes its size and SHA-256 digest. The build has no npm dependencies, network calls or SDK requirement. Increment the version in the manifest for every published update. The packager preserves historical index entries; retain the existing pool ZIPs when publishing updates.
 
 ## Privacy
 
@@ -39,3 +39,7 @@ No message access, analytics, network requests, permissions prompts or credentia
 ## Appearance inspection build
 
 `0.3.0-inspect` is a diagnostic prerelease, not a finished chat/profile transparency fix. It adds **Copy appearance report** in plugin settings. Open chat, the DM list and a profile before copying. Reports contain component names, prop names and color values; they omit personal field values and are copied locally, never uploaded. Stable remains 0.2.0.
+
+## 0.3.0 surface rendering
+
+Device-reported animated views, screen header backgrounds and native gradients now receive alpha at their rendering boundary. Broad custom-colored surfaces and gradient stops retain RGB values; text, username gradients, avatars and attachments are not faded. Native DCDChat internal background coverage is still unverified: the initial diagnostic report hit its sample limit before chat was captured. Appearance reports now omit text/icon entries and collect up to 300 samples.
