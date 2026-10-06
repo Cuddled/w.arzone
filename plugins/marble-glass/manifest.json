@@ -4,7 +4,7 @@
   "name": "Marble Glass",
   "description": "White marble, fine black veins and translucent pearl glass surfaces. Inspired by iOS Liquid Glass.",
   "author": "Cuddled",
-  "version": "0.2.0",
+  "version": "0.3.0-inspect",
   "icon": "PaletteIcon",
   "dependencies": {
     "revenge.api": {

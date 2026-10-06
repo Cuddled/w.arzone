@@ -32,6 +32,8 @@ const revenge = {
   react: { React, ReactNative: RN, jsxRuntime: { beforeJSX(type, fn) { hooks.set(type, fn); return () => hooks.delete(type); } } },
   discord: { common: { tokens: { Tokens: tokens } } }
 };
+let copiedReport;
+revenge.externals = { ReactNativeClipboard: { Clipboard: { setString(text) { copiedReport = text; } } } };
 let reloads = 0;
 let saved;
 const api = { plugin: { startedLate: false, requireReload() { reloads++; } }, jsonStorage: {
@@ -84,6 +86,13 @@ const options = vm.runInContext('(function(revenge,plugin){return ' + script + '
   assert.notEqual(transformed[1], frozenProps, 'never mutate shared React props');
   assert.equal(transformed[1].style[1].borderWidth, 0, 'do not outline every panel');
   assert.equal(transformed[1].style[1].backgroundColor, 'rgba(255,255,255,0.12)');
+  React.createElement('DCDChat', { messageContent: 'PRIVATE MESSAGE', userId: 'PRIVATE ID', theme: { backgroundColor: '#f5f5f7' } });
+  React.createElement('ProfileGradient', { colors: ['#664488', '#cc4499'], username: 'PRIVATE NAME' });
+  const diagnosticSettings = options.SettingsComponent().props.children[0];
+  diagnosticSettings.props.children[7].props.onPress();
+  assert.ok(copiedReport.includes('#664488'), 'retain exact custom gradient colors in report');
+  assert.ok(copiedReport.includes('theme.backgroundColor'));
+  assert.ok(!copiedReport.includes('PRIVATE'), 'exclude personal field values');
   options.stop(api);
   assert.equal(resolver.resolveSemanticColor, originalResolver, 'resolver restored');
   assert.equal(AppRegistry.registerComponent, originalRegister, 'app registration restored');

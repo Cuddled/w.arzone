@@ -35,3 +35,7 @@ node tests/lifecycle.cjs
 ## Privacy
 
 No message access, analytics, network requests, permissions prompts or credentials. Settings are stored locally through Revenge's plugin JSON storage API.
+
+## Appearance inspection build
+
+`0.3.0-inspect` is a diagnostic prerelease, not a finished chat/profile transparency fix. It adds **Copy appearance report** in plugin settings. Open chat, the DM list and a profile before copying. Reports contain component names, prop names and color values; they omit personal field values and are copied locally, never uploaded. Stable remains 0.2.0.

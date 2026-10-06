@@ -18,6 +18,55 @@
   var tokenNames = new WeakMap();
   var registrationCleanup;
   var cleanups = [];
+  var appearanceSamples = new Map();
+  var diagnosticsInstalled = false;
+  // Record rendering metadata only: no text, IDs, images, messages or account fields.
+  function observeAppearance(type, props) {
+    if (!enabled || !props || props.__marbleGlass || appearanceSamples.size >= 100) return;
+    var name = typeof type === "string" ? type : type && (type.displayName || type.name);
+    if (!name) return;
+    var picked = {};
+    function collect(obj, path, depth) {
+      if (!obj || typeof obj !== "object" || depth > 3) return;
+      Object.keys(obj).slice(0, 80).forEach(function (key) {
+        if (!/color|background|gradient|theme|style|tint/i.test(key)) return;
+        var value = obj[key];
+        var full = path ? path + "." + key : key;
+        if (/color|background|tint/i.test(key) &&
+          ((typeof value === "string" && /^(#[0-9a-f]{3,8}|rgba?\([\d., %]+\)|transparent|white|black)$/i.test(value)) ||
+           typeof value === "number" && Number.isFinite(value))) picked[full] = value;
+        else if (Array.isArray(value) && /color/i.test(key)) {
+          var colors = value.filter(function (v) { return typeof v === "number" || typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v); });
+          if (colors.length) picked[full] = colors.slice(0, 8);
+        } else if (key === "style" || key === "contentContainerStyle") {
+          collect(revenge.react.ReactNative.StyleSheet.flatten(value), full, depth + 1);
+        } else if (value && typeof value === "object") collect(value, full, depth + 1);
+      });
+    }
+    collect(props, "", 0);
+    if (!Object.keys(picked).length && !/DCDChat|Profile|Gradient/i.test(name)) return;
+    var record = { component: name, propNames: Object.keys(props).filter(function (k) { return k !== "children"; }).slice(0, 70), colors: picked };
+    appearanceSamples.set(name + JSON.stringify(picked), record);
+  }
+  function installDiagnostics() {
+    if (diagnosticsInstalled) return;
+    [revenge.react.ReactJSXRuntime, revenge.react.React].forEach(function (parent) {
+      if (!parent) return;
+      ["jsx", "jsxs", "createElement"].forEach(function (key) {
+        if (typeof parent[key] !== "function") return;
+        keep(revenge.patcher.instead(parent, key, function (args, original) {
+          try { observeAppearance(args[0], args[1]); } catch (_) {}
+          return Reflect.apply(original, this, args);
+        }));
+      });
+    });
+    diagnosticsInstalled = true;
+  }
+  function copyAppearanceReport() {
+    var report = JSON.stringify({ pluginVersion: "0.3.0-inspect", lightAppearance: lightAppearance,
+      samples: Array.from(appearanceSamples.values()) }, null, 2);
+    revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
+  }
 
   function keep(fn) { if (typeof fn === "function") cleanups.push(fn); }
   function notify() { listeners.forEach(function (fn) { fn(); }); }
@@ -200,6 +249,7 @@
     [RN.View, RN.Pressable, RN.TextInput, RN.ScrollView].forEach(function (type) {
       if (type) keep(hooks.beforeJSX(type, before));
     });
+    installDiagnostics();
     viewInstalled = true;
   }
 
@@ -234,6 +284,8 @@
       button("More frosted", function () { return save("opacity", Math.min(0.76, +(opacity + 0.08).toFixed(2))); }),
       button("Marble background: " + (marble ? "On" : "Off"), function () { return save("marble", !marble); }),
       button("Glass highlights: " + (glassEdges ? "On" : "Off"), function () { return save("glassEdges", !glassEdges); }),
+      button("Copy appearance report", copyAppearanceReport),
+      text("Open a chat and a profile first, then copy this report and paste it to Codex. It contains component names and colors only.", { marginTop: 14, fontSize: 14, color: "#5b5e66" }),
       text("Reload Discord after changing settings so cached styles update.", { marginTop: 20, color: "#5b5e66", fontSize: 14 }),
       text("Theme hooks: " + (resolverInstalled ? "connected" : "not found") + " · Background: " +
         (rootInstalled ? "connected" : "reload needed"), { marginTop: 14, color: "#5b5e66", fontSize: 13 })
@@ -271,7 +323,7 @@
       enabled = false;
       cleanups.splice(0).reverse().forEach(function (fn) { fn(); });
       seenTokens = new WeakSet(); seenRN = new WeakSet(); tokenNames = new WeakMap();
-      resolverInstalled = false; viewInstalled = false;
+      resolverInstalled = false; viewInstalled = false; diagnosticsInstalled = false; appearanceSamples.clear();
       activeApi = undefined; settingsStore = undefined;
       notify();
       api.plugin.requireReload();
