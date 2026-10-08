@@ -60,6 +60,16 @@ const gradient=React.createElement('RNLinearGradient',{colors:['#ffa5d5','#00000
 const textStyle={color:'#ffffff'};assert.equal(React.createElement('RCTText',{style:textStyle}).props.style,textStyle);
 function Background(){}const props={animatedIndex:{},animatedPosition:{},style:{height:600,backgroundColor:'#ffffff'}};
 const sheet=React.createElement(Background,props);const backing=sheet.type(sheet.props);assert.equal(backing.props.style[1].backgroundColor,'#070911');assert.equal(backing.props.children[1].type,Background);assert.equal(backing.props.children[1].props.animatedIndex,props.animatedIndex);
+assert.equal(typeof backing.props.children[0].type,'function','profile sheet mounts animated Artwork, not a static image');
+const profileArt=backing.props.children[0];const profileVisual=profileArt.type(profileArt.props);
+assert.equal(profileVisual.props.children[1].type,'AnimatedImage');
+const profileDisposers=effects.splice(0).map(fn=>fn());const beforeProfileStart=loopStarts;await settle();assert.equal(loopStarts,beforeProfileStart+1,'profile owns a live native animation');
+const screen=React.createElement('RNSScreenContentWrapper',{stackPresentation:'push',style:{flex:1},children:'members'});
+assert.notEqual(screen.type,'RNSScreenContentWrapper');const scene=screen.type({...screen.props,children:'members'});
+assert.equal(scene.type,'RNSScreenContentWrapper','original native scene type retained');
+assert.equal(scene.props.stackPresentation,'push');assert.equal(scene.props.style[1].backgroundColor,'#070911','opaque scene hides previous chat');
+assert.equal(typeof scene.props.children[0].type,'function');assert.equal(scene.props.children[1],'members','original screen content retained');
+assert.equal(React.createElement(scene.type,scene.props).type,scene.type,'scene marker prevents recursive wrapping');
 const settings=options.SettingsComponent().props.children[0].props.children;
 const cards=settings.filter(e=>e?.props?.style?.height===142);assert.equal(cards.length,4);
 const images=new Set(cards.map(c=>c.props.children[0].props.source.uri));assert.equal(images.size,4,'all four unique artworks bundled');
@@ -68,7 +78,7 @@ const motionButton=settings.find(e=>e?.props?.children?.[0]?.props?.children?.[0
 assert.ok(reloads>=4);options.stop(api);assert.equal(loopStops,loopStarts,'save/stop cancels all native animations immediately');const startsBeforeReduced=loopStarts;
 assert.equal(React.createElement,originalCreate);assert.equal(tokens.resolveSemanticColor,originalResolve);assert.equal(hooks.size,0);
 assert.equal(root.type(root.props),root.props.children,'retained root is inert');
-for(const dispose of disposers)if(dispose)dispose();assert.deepEqual(Object.keys(listeners),[],'event subscriptions cleaned');
+for(const dispose of disposers.concat(profileDisposers))if(dispose)dispose();assert.deepEqual(Object.keys(listeners),[],'event subscriptions cleaned');
 // System reduce motion on first mount must never start a loop.
 api.jsonStorage.get=async()=>({styleName:"prism",motion:true});reduce=true;RN.AppState.currentState=null;options.preInit();await options.init(api);options.start(api);const again=registrations.Discord()({});const bg=again.type(again.props);bg.props.children[0].type({});
 const ds=effects.splice(0).map(fn=>fn());await settle();assert.equal(loopStarts,startsBeforeReduced);options.stop(api);for(const d of ds)if(d)d();

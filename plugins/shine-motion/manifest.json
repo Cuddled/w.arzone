@@ -4,7 +4,7 @@
   "name": "Shine + Motion",
   "description": "Four animated dark glass styles: Mercury, Prism, Afterimage and Jellyfish. Embedded artwork, motion controls and reduced-motion support.",
   "author": "Cuddled",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "icon": "PaletteIcon",
   "dependencies": {
     "revenge.api": {

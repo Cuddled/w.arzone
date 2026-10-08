@@ -2,7 +2,7 @@
 
 Four selectable dark styles in one plugin: Mercury (silver reflections), Prism (spectral rims), Afterimage (cyan/pink light trails), and Jellyfish (bioluminescent bells).
 
-Add repository `https://raw.githubusercontent.com/Cuddled/w.arzone/main/` in Plugins → Advanced → Repositories, refresh, and install **Shine + Motion**. Alternatively install `pool/cuddled.shine-motion@0.1.2.zip` from file.
+Add repository `https://raw.githubusercontent.com/Cuddled/w.arzone/main/` in Plugins → Advanced → Repositories, refresh, and install **Shine + Motion**. Alternatively install `pool/cuddled.shine-motion@0.1.3.zip` from file.
 
 Set Discord Appearance to Dark. Disable Marble Glass and other full theme plugins. Reload, then open this plugin's settings to choose a style. Reload after style or opacity changes because Discord caches native styles. Motion and speed changes apply immediately. Slow is the default; system reduced motion disables animation by default; the settings toggle can override it if desired. Motion stops when the app goes into the background.
 
@@ -17,3 +17,5 @@ Version 0.1.1 replaces the initial procedural outlines with original generated c
 0.1.1: shorter 1.8–9.4 second motion legs, an animated reflection layer plus traveling edge highlights, null AppState startup recovery, accessibility-query failure recovery, and animation-state diagnostics. The HTML preview illustrates the artwork; native animation behavior is covered by mocked lifecycle tests and needs device confirmation.
 
 0.1.2: cached neutral dark backgrounds on DM lists, member screens, scroll containers and headers now become nearly transparent; rounded cards retain a darker glass tint, floating surfaces remain frosted, and brand/status colors and pure-black masks are preserved. This broadens coverage across native screen renderers; device screenshots remain needed to confirm every screen.
+
+0.1.3: profile bottom-sheet artwork animates with the same speed, motion and reduced-motion controls. Native navigation content wrappers receive an opaque artwork backing with animated decoration, preventing prior chat text from showing through member/detail screens. Native screen props and original content are retained.

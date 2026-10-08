@@ -29,6 +29,7 @@
   var appearanceSamples = new Map();
   var diagnosticsInstalled = false;
   var sheetBackgrounds = new Map();
+  var sceneBackgrounds = new Map();
   // Record rendering metadata only: no text, IDs, images, messages or account fields.
   function observeAppearance(type, props) {
     if (!enabled || !props || props.__shineMotion || appearanceSamples.size >= 300) return;
@@ -80,6 +81,7 @@
   // A modal must obscure the previous screen before adding translucent colors.
   function marbleSheetType(type, props) {
     var name = typeof type === "string" ? type : type && (type.displayName || type.name);
+    if (enabled && marble && name === "RNSScreenContentWrapper" && props && !props.__shineMotion) return sceneType(type);
     if (!enabled || !marble || name !== "Background" || !props || props.__shineMotion ||
         !("animatedIndex" in props) || !("animatedPosition" in props)) return type;
     if (!sheetBackgrounds.has(type)) {
@@ -92,10 +94,7 @@
         return React.createElement(RN.View, {
           pointerEvents: "none", __shineMotion: true,
           style: [props.style, { backgroundColor: "#070911", overflow: "hidden" }]
-        }, React.createElement(RN.Image, {
-          source: { uri: ART[styleName] }, style: absolute, resizeMode: "cover",
-          pointerEvents: "none", accessible: false, __shineMotion: true
-        }), React.createElement(type, Object.assign({}, props, {
+        }, React.createElement(Artwork, null), React.createElement(type, Object.assign({}, props, {
           __shineMotion: true, style: [absolute, { backgroundColor: rgba(opacity) }]
         })));
       };
@@ -103,8 +102,24 @@
     }
     return sheetBackgrounds.get(type);
   }
+  // Each navigation scene obscures the previous screen with its own animated art.
+  // Keep the native wrapper itself and its props; insert an absolute decorative child.
+  function sceneType(type) {
+    if (!sceneBackgrounds.has(type)) {
+      var Scene = function ShineMotionScene(props) {
+        useRefresh();
+        var React = revenge.react.React;
+        if (!enabled || !marble) return React.createElement(type, props);
+        var nativeProps = Object.assign({}, props, {__shineMotion:true,
+          style:[props.style,{backgroundColor:"#070911",overflow:"hidden"}]});
+        return React.createElement(type,nativeProps,React.createElement(Artwork,null),props.children);
+      };
+      sceneBackgrounds.set(type,Scene);
+    }
+    return sceneBackgrounds.get(type);
+  }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.1.2", style: styleName, motion: motion, speed: speed, animationStatus: animationStatus, respectReducedMotion: respectReducedMotion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
+    var report = JSON.stringify({ pluginVersion: "0.1.3", style: styleName, motion: motion, speed: speed, animationStatus: animationStatus, respectReducedMotion: respectReducedMotion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -483,7 +498,7 @@
       animationControllers.forEach(function(sync){sync();});
       cleanups.splice(0).reverse().forEach(function (fn) { fn(); });
       seenTokens = new WeakSet(); seenRN = new WeakSet(); tokenNames = new WeakMap();
-      resolverInstalled = false; viewInstalled = false; diagnosticsInstalled = false; appearanceSamples.clear(); sheetBackgrounds.clear();
+      resolverInstalled = false; viewInstalled = false; diagnosticsInstalled = false; appearanceSamples.clear(); sheetBackgrounds.clear(); sceneBackgrounds.clear();
       activeApi = undefined; settingsStore = undefined;
       notify();
       api.plugin.requireReload();
