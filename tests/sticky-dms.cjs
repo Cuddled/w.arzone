@@ -86,6 +86,25 @@ function button(name){return flatten(options.SettingsComponent()).find(n=>n.type
  assert.equal(tinted.props.color,'#ec4899');
  assert.equal(tinted.props.style[1].tintColor,'#ec4899');
  assert.equal(pin.props.color,'#70737a','input icon props immutable');
+ // Captured Android source uses a pin-slot helper plus a generic image Icon.
+ const slotType={type:function MessagesItemChannelContentIcon(){}};
+ const slot=React.createElement(slotType,{favorite:true,muted:false,blocked:false,ignored:false});
+ const slotProvider=slot.type(slot.props);
+ assert.equal(slotProvider.props.value,'#ec4899','only helper pin branch inherits plugin color');
+ slotProvider.type.context.current=slotProvider.props.value;
+ const bitmapProps=Object.freeze({source:123,size:16,style:Object.freeze({tintColor:'#70737a'})});
+ const bitmap=React.createElement('Icon',bitmapProps);
+ const coloredBitmap=bitmap.type(bitmap.props);
+ assert.equal(coloredBitmap.type,'Icon');
+ assert.equal(coloredBitmap.props.source,123,'same bundled pin asset');
+ assert.equal(coloredBitmap.props.style[1].tintColor,'#ec4899');
+ assert.equal(bitmapProps.style.tintColor,'#70737a','cached icon style not mutated');
+ const mutedSlot=React.createElement(slotType,{favorite:true,muted:true});
+ const mutedProvider=mutedSlot.type(mutedSlot.props);
+ assert.equal(mutedProvider.props.value,null,'muted branch never inherits the pin tint');
+ mutedProvider.type.context.current=null;
+ const mutedIcon=React.createElement('Icon',bitmapProps);
+ assert.equal(mutedIcon.type(mutedIcon.props).props.style,bitmapProps.style,'muted icon keeps original style');
  const normalContent=React.createElement(contentType,{channel:channels['3'],favorite:true});
  const normalRow=normalContent.type(normalContent.props);
  assert.equal(normalRow.props.value,null,'normal Discord pin has no override color');
@@ -93,6 +112,12 @@ function button(name){return flatten(options.SettingsComponent()).find(n=>n.type
  normalRow.type.context.current=normalRow.props.value;
  const normalPin=React.createElement(pinType,{color:'#70737a'});
  assert.equal(normalPin.type(normalPin.props).props.color,'#70737a','normal pin keeps Discord color');
+ const normalSlot=React.createElement(slotType,{favorite:true});
+ const normalSlotProvider=normalSlot.type(normalSlot.props);
+ normalSlotProvider.type.context.current=normalSlotProvider.props.value;
+ assert.equal(normalSlotProvider.props.value,null);
+ const normalBitmap=React.createElement('Icon',bitmapProps);
+ assert.equal(normalBitmap.type(normalBitmap.props).props.style,bitmapProps.style,'ordinary native pin image remains gray');
  const unrelated=React.createElement('BellIcon',{color:'#70737a'});
  assert.equal(unrelated.type,'BellIcon','only pin icons are wrapped');
  let originals=0;const props=Object.freeze({channel:channels['2'],title:'Friend 2',onLongPress(){originals++}});

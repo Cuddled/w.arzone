@@ -6,7 +6,7 @@
   var writeQueue = Promise.resolve(), error = "", search = "";
   var rowsInstalled = false, wrappers = new Map(), revision = 0, listHooks = 0, listSamples = new Map();
   var React = revenge.react.React, RN = revenge.react.ReactNative;
-  var PinColorContext, pinColorDraft = "#a855f7", pinIconNames = new Set(), coloredPinRenders = 0;
+  var PinColorContext, PinGlyphContext, contentIconNames = new Set(), pinColorDraft = "#a855f7", pinIconNames = new Set(), coloredPinRenders = 0;
   function account() {
     var user = userStore && userStore.getCurrentUser();
     return user && typeof user.id === "string" ? user.id : undefined;
@@ -126,8 +126,15 @@
     if (!types) wrappers.set(type, types = {});
     if (!types[kind]) {
       types[kind] = function StickyDMRender(props) {
-        if (kind === "icon") {
-          var color = React.useContext(PinColorContext);
+        if (kind === "pin-slot") {
+          var rowColor = React.useContext(PinColorContext);
+          // Discord gives blocked/ignored/muted icons precedence over the pin.
+          var pinBranch = props.favorite && !props.blocked && !props.ignored && !props.muted;
+          return React.createElement(PinGlyphContext.Provider, { value: enabled && pinBranch ? rowColor : null, __stickyDM: true },
+            React.createElement(type, Object.assign({}, props, { __stickyDM: true })));
+        }
+        if (kind === "icon" || kind === "image-icon") {
+          var color = React.useContext(kind === "icon" ? PinColorContext : PinGlyphContext);
           var iconProps = Object.assign({}, props, { __stickyDM: true });
           if (enabled && color) {
             iconProps.color = color;
@@ -153,6 +160,13 @@
   }
   function renderType(type, props) {
     if (!enabled || !props || props.__stickyDM) return type;
+    if (typeName(type) === "MessagesItemChannelContentIcon") {
+      contentIconNames.add(typeName(type));
+      return wrapperFor(type, "pin-slot");
+    }
+    if (/^(Icon|BaseIconImage|Image|RCTImageView)$/.test(typeName(type)) && props.source !== undefined) {
+      return wrapperFor(type, "image-icon");
+    }
     if (/^Pin(?:[A-Z][A-Za-z]*)?Icon$/.test(typeName(type))) {
       pinIconNames.add(typeName(type));
       return wrapperFor(type, "icon");
@@ -253,7 +267,7 @@
       text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · List renders: " + listHooks + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
       text("This beta needs verification on your Discord build. Name indicators and long-press shortcuts depend on the DM row component.", { fontSize: 13, marginTop: 10 }),
       button("Copy compatibility report", function () {
-        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.3", pinIconNames: Array.from(pinIconNames), coloredPinRenders: coloredPinRenders, pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
+        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.4", contentIconNames: Array.from(contentIconNames), pinIconNames: Array.from(pinIconNames), coloredPinRenders: coloredPinRenders, pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
       }));
   }
   function connect() {
@@ -278,8 +292,9 @@
     },
     start: function (value) { api = value; enabled = true;
       if (!PinColorContext) PinColorContext = React.createContext(null);
+      if (!PinGlyphContext) PinGlyphContext = React.createContext(null);
       connect(); refresh();
       if (api.plugin && api.plugin.startedLate) api.plugin.requireReload(); },
-    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; rowsInstalled = false; wrappers.clear(); listSamples.clear(); listHooks = 0; pinIconNames.clear(); coloredPinRenders = 0; }
+    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; rowsInstalled = false; wrappers.clear(); listSamples.clear(); listHooks = 0; pinIconNames.clear(); contentIconNames.clear(); coloredPinRenders = 0; }
   }) };
 })()
