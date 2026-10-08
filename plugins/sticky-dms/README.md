@@ -14,7 +14,7 @@ Refresh the repository under Revenge → Plugins → Advanced → Repositories, 
 
 Version 0.1.1 targets the mobile `MessagesItemChannelContent` row and adds an indicator in the name area without replacing Discord’s text or unread indicators. On recognized DM rows with a long-press prop it also adds a Pin/Unpin prompt. **Original DM options** opens the original handler. Row structure varies by Discord version; the settings interface provides pinning independently of these row integrations.
 
-Force-stop and reopen Discord after installing this update. JSX hooks must be present before Discord captures its rendering runtime references. Settings changes update mounted plugin list/row wrappers; changing the native layout still needs verification on-device.
+Force-stop and reopen Discord after installing this update. The update installs hooks after Revenge has initialized its own JSX dispatcher. A full restart removes any earlier recursive proxy chain. Settings changes update mounted plugin list/row wrappers; changing the native layout still needs verification on-device.
 
 ## Compatibility
 
@@ -26,6 +26,12 @@ Mock tests cover stable pin order after incoming-message reorder, immutable orig
 
 ## Version 0.1.1 evidence and validation
 
-The 0.1.0 getters were connected on the user's Android build but did not change the visible list, and none of the guessed row names matched. A published [Discord Android 342.16 surface capture](https://github.com/dataterminals/RevengeQuickFormat/blob/main/docs/surfaces.md#direct-message-list) documents the anonymous memo list data structure and `MessagesItemChannelContent` row. The update uses these observed bindings, unwraps memo/forwardRef component names, and installs JSX hooks during preInit rather than after startup.
+The 0.1.0 getters were connected on the user's Android build but did not change the visible list, and none of the guessed row names matched. A published [Discord Android 342.16 surface capture](https://github.com/dataterminals/RevengeQuickFormat/blob/main/docs/surfaces.md#direct-message-list) documents the anonymous memo list data structure and `MessagesItemChannelContent` row. The update uses these observed bindings, unwraps memo/forwardRef component names, and intercepts the JSX runtime. Version 0.1.1 installed that interception too early; version 0.1.2 corrects the lifecycle timing.
 
 Additional mocks reproduce that anonymous list without consulting store getters, a same-key new-message reorder, favorites occupying a separate visual section, unchanged section counts, immutable original data and a row whose name is not supplied as a string prop. A custom badge is rendered independently of name props. This evidence is from a nearby Android build and automated fixtures; the user's current build still needs confirmation.
+
+## Version 0.1.2 recursion fix
+
+Removed the preInit JSX patch. Revenge's JSX dispatcher captures a raw JSX factory and may call it from insteadJSX hooks. When Sticky DMs patched that factory first, the captured value became a mutable patcher proxy; adding the core dispatcher later could make it call itself through that proxy. The resulting recursion can occur on profiles where other plugins use insteadJSX, even though Sticky DMs does not target those profiles.
+
+Regression checks model Revenge's stable proxy hook chain: the early-capture sequence reproduces RangeError, while installing Sticky DMs after the core capture allows a profile insteadJSX path to finish. Existing ordering, indicators, persistence and cleanup tests also pass. Android verification remains required.

@@ -231,7 +231,7 @@
       text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · List renders: " + listHooks + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
       text("This beta needs verification on your Discord build. Name indicators and long-press shortcuts depend on the DM row component.", { fontSize: 13, marginTop: 10 }),
       button("Copy compatibility report", function () {
-        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.1", pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
+        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.2", pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
       }));
   }
   function connect() {
@@ -242,7 +242,6 @@
     installRows();
   }
   return { default: plugin({ SettingsComponent: SettingsComponent,
-    preInit: function () { enabled = true; installRows(); },
     init: async function (value) {
       api = value;
       var stored = await api.jsonStorage.get();

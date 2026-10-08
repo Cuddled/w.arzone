@@ -9,7 +9,33 @@ const users = {getCurrentUser:()=>({id:currentUser}),getUser:id=>({username:'Fri
 const modules=[sortStore,channelStore,users];
 const React={createElement(type,props,...children){return {type,props:{...props,children}}},useState(){return [0,()=>{}]},useEffect(){}};
 const RN={View:'View',Text:'Text',TextInput:'TextInput',Pressable:'Pressable',ScrollView:'ScrollView',Alert:{alert(...args){alert=args}}};
-const revenge={react:{React,ReactNative:RN},patcher:{instead(parent,key,cb){const orig=parent[key];parent[key]=function(...args){return cb.call(this,args,orig)};return ()=>parent[key]=orig}},modules:{finders:{filters:{withProps:(...keys)=>keys},waitForModules:()=>()=>{},*lookupModules(keys){for(const m of modules)if(keys.every(k=>k in m))yield [m,1]}}},externals:{ReactNativeClipboard:{Clipboard:{setString:value=>report=value}}}};
+// Stable, mutable proxies reproduce the critical Revenge patcher behavior.
+const patchStates=new WeakMap();
+const patcher={instead(parent,key,cb){
+ let state=patchStates.get(parent[key]);
+ if(!state){state={target:parent[key],hooks:[]};const proxy=new Proxy(state.target,{apply(_target,self,args){return invoke(state,0,self,args)}});state.proxy=proxy;parent[key]=proxy;patchStates.set(proxy,state);}
+ const node={cb};state.hooks.unshift(node);
+ return ()=>{state.hooks.splice(state.hooks.indexOf(node),1);if(!state.hooks.length&&parent[key]===state.proxy)parent[key]=state.target};
+}};
+function invoke(state,index,self,args){const node=state.hooks[index];return node?node.cb.call(self,args,function(...nextArgs){return invoke(state,index+1,this,nextArgs)}):Reflect.apply(state.target,self,args)}
+const jsxRuntime={jsx:React.createElement.bind(React),jsxs:React.createElement.bind(React)};
+// Core captures raw JSX before installing its dispatcher. Profile plugins use
+// the captured factory to create elements without recursively re-entering hooks.
+const coreRawJSX=jsxRuntime.jsx;
+for(const key of ['jsx','jsxs'])patcher.instead(jsxRuntime,key,function(args,orig){
+ if(args[0]==='UserProfilePrimaryInfo')return coreRawJSX(...args);
+ return Reflect.apply(orig,this,args);
+});
+const capturedAppJSX=jsxRuntime.jsx;
+// Regression: patching before core captures JSX creates a self-referential proxy.
+const earlyRuntime={jsx:(_type,props)=>props};
+const undoEarly=patcher.instead(earlyRuntime,'jsx',function(args,orig){return Reflect.apply(orig,this,args)});
+const earlyCaptured=earlyRuntime.jsx;
+const undoCore=patcher.instead(earlyRuntime,'jsx',function(args){return earlyCaptured(...args)});
+assert.throws(()=>earlyRuntime.jsx('UserProfilePrimaryInfo',{}),RangeError,'old startup timing reproduces recursive proxy failure');
+undoCore();undoEarly();
+
+const revenge={react:{React,ReactNative:RN,ReactJSXRuntime:jsxRuntime},patcher,modules:{finders:{filters:{withProps:(...keys)=>keys},waitForModules:()=>()=>{},*lookupModules(keys){for(const m of modules)if(keys.every(k=>k in m))yield [m,1]}}},externals:{ReactNativeClipboard:{Clipboard:{setString:value=>report=value}}}};
 const context=vm.createContext({revenge,plugin:x=>x});
 const options=vm.runInContext('('+fs.readFileSync('plugins/sticky-dms/js/index.js','utf8')+').default',context);
 const origSort=sortStore.getPrivateChannelIds, origCreate=React.createElement;
@@ -17,8 +43,9 @@ const api={jsonStorage:{async get(){return {accounts:{100:['2','1'],200:['3']},i
 function flatten(node){if(!node)return [];if(Array.isArray(node))return node.flatMap(flatten);return typeof node==='object'?[node,...flatten(node.props?.children)]:[];}
 function button(name){return flatten(options.SettingsComponent()).find(n=>n.type==='Pressable'&&n.props.children[0]?.props.children[0]===name)}
 (async()=>{
- options.preInit();await options.init(api);options.start(api);
+ assert.equal(options.preInit,undefined,"never patch JSX during preInit");await options.init(api);options.start(api);
  assert.deepEqual([...sortStore.getPrivateChannelIds()],['2','1','3']);
+ assert.doesNotThrow(()=>capturedAppJSX('UserProfilePrimaryInfo',{user:{id:'100'}}),'profile JSX hook does not recurse');
  order=['1','3','2'];assert.deepEqual([...sortStore.getPrivateChannelIds()],['2','1','3'],'new messages cannot reorder pins');
  assert.deepEqual(order,['1','3','2'],'cached source never mutated');
  assert.deepEqual([...sortStore.getSortedChannels()].map(x=>x.channelId),['2','1','3']);

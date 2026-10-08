@@ -4,7 +4,7 @@
   "name": "Sticky DMs",
   "description": "Keep chosen DMs in a fixed order above recent conversations, with optional name indicators.",
   "author": "Cuddled",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icon": "PinIcon",
   "dependencies": {"revenge.api": {"version": ">=1 <2"}, "discord": {"version": "*"}},
   "dist": {"script": "index.js"}
