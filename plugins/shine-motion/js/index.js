@@ -6,6 +6,8 @@
   var motion = true;
   var speed = "slow";
   var animationControllers = new Set();
+  var animationStatus = "not mounted";
+  var respectReducedMotion = true;
   function accent() { return {mercury:"#d2e5f3",prism:"#ab96ff",afterimage:"#f466ba",jellyfish:"#80dae8"}[styleName]; }
   var enabled = false;
   var opacity = 0.30;
@@ -102,7 +104,7 @@
     return sheetBackgrounds.get(type);
   }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.1.0", style: styleName, motion: motion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
+    var report = JSON.stringify({ pluginVersion: "0.1.1", style: styleName, motion: motion, speed: speed, animationStatus: animationStatus, respectReducedMotion: respectReducedMotion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -264,14 +266,15 @@
     useRefresh();
     var React = revenge.react.React, RN = revenge.react.ReactNative;
     var progress = React.useRef(new RN.Animated.Value(0)).current;
-    var duration = {mercury:14000,prism:11000,afterimage:5000,jellyfish:16000}[styleName] * (speed === "slow" ? 1.5 : 1);
+    var duration = {mercury:4200,prism:3200,afterimage:1800,jellyfish:5200}[styleName] * (speed === "slow" ? 1.8 : 1);
     React.useEffect(function () {
       var disposed = false, reduced = true, loop;
-      var active = !RN.AppState || RN.AppState.currentState === "active";
+      var active = !RN.AppState || RN.AppState.currentState == null || RN.AppState.currentState === "active";
       function sync() {
         if (loop) { loop.stop(); loop = undefined; }
         progress.setValue(0);
-        if (!disposed && enabled && motion && active && !reduced) {
+        animationStatus = !enabled ? "disabled" : !motion ? "motion off" : !active ? "app in background" : reduced && respectReducedMotion ? "system reduced motion" : "running";
+        if (!disposed && enabled && motion && active && (!reduced || !respectReducedMotion)) {
           loop = RN.Animated.loop(RN.Animated.sequence([
             RN.Animated.timing(progress,{toValue:1,duration:duration,useNativeDriver:true,isInteraction:false}),
             RN.Animated.timing(progress,{toValue:0,duration:duration,useNativeDriver:true,isInteraction:false})
@@ -284,23 +287,37 @@
       var access = RN.AccessibilityInfo;
       var reduceSub = access && access.addEventListener("reduceMotionChanged",function(value) { reduced = value; sync(); });
       if (access && access.isReduceMotionEnabled) {
-        Promise.resolve(access.isReduceMotionEnabled()).then(function(value) { if (!disposed) { reduced = value; sync(); } }).catch(function() {});
+        Promise.resolve(access.isReduceMotionEnabled()).then(function(value) { if (!disposed) { reduced = value; sync(); } }).catch(function() { if (!disposed) { reduced = false; sync(); } });
       } else { reduced = false; sync(); }
       return function() {
         disposed = true; if (loop) loop.stop(); progress.stopAnimation();
         animationControllers.delete(sync);
         if (stateSub) stateSub.remove(); if (reduceSub) reduceSub.remove();
       };
-    },[styleName,motion,speed,duration]);
-    var absolute = {position:"absolute",top:-24,left:-16,right:-16,bottom:-24};
-    var translate = styleName === "afterimage" ? 18 : styleName === "jellyfish" ? -16 : 8;
-    return React.createElement(RN.Animated.Image, {
+    },[styleName,motion,speed,duration,respectReducedMotion]);
+    var absolute = {position:"absolute",top:-60,left:-24,right:-24,bottom:-60};
+    var translate = styleName === "afterimage" ? 42 : styleName === "jellyfish" ? -36 : 26;
+    // Two image layers: an opaque base and moving specular reflection. Text is never animated.
+    var base = React.createElement(RN.Image,{__shineMotion:true,source:{uri:ART[styleName]},resizeMode:"cover",
+      accessible:false,pointerEvents:"none",style:absolute});
+    var reflection = React.createElement(RN.Animated.Image, {
       __shineMotion:true,source:{uri:ART[styleName]},resizeMode:"cover",accessible:false,pointerEvents:"none",
-      style:[absolute,{opacity:progress.interpolate({inputRange:[0,1],outputRange:[.72,1]}),
-        transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[0,translate]})},
-          {scale:progress.interpolate({inputRange:[0,1],outputRange:[1,styleName === "mercury" ? 1.05 : 1.025]})}]}]
+      style:[absolute,{opacity:progress.interpolate({inputRange:[0,1],outputRange:[0,.6]}),
+        transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[-translate,translate]})},
+          {scale:progress.interpolate({inputRange:[0,1],outputRange:[1.04,1.14]})}]}]
     });
+    function shimmer(side,color) {
+      return React.createElement(RN.Animated.View,{key:side,__shineMotion:true,accessible:false,pointerEvents:"none",
+        style:{position:"absolute",top:"35%",[side]:6,width:8,height:110,borderRadius:8,backgroundColor:color,
+          opacity:progress.interpolate({inputRange:[0,.5,1],outputRange:[.08,.65,.08]}),
+          transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[-170,240]})}]}});
+    }
+    return React.createElement(RN.View,{__shineMotion:true,pointerEvents:"none",accessible:false,
+      style:{position:"absolute",top:0,right:0,bottom:0,left:0,overflow:"hidden"}},base,reflection,
+      shimmer("left",styleName==="mercury"?"#d8efff":"#6cedff"),
+      shimmer("right",styleName==="mercury"?"#ffffff":"#e7a0ff"));
   }
+
   function Backdrop(props) {
     useRefresh();
     var React = revenge.react.React;
@@ -384,8 +401,10 @@
     if (key === "styleName" && ART[value]) styleName = value;
     if (key === "motion") motion = value;
     if (key === "speed") speed = value;
+    if (key === "respectReducedMotion") respectReducedMotion = value;
+    animationControllers.forEach(function(sync){sync();});
     notify();
-    if (settingsStore) await settingsStore.set({opacity:opacity,styleName:styleName,motion:motion,speed:speed});
+    if (settingsStore) await settingsStore.set({opacity:opacity,styleName:styleName,motion:motion,speed:speed,respectReducedMotion:respectReducedMotion});
     if (activeApi && (key === "styleName" || key === "opacity")) activeApi.plugin.requireReload();
   }
   function SettingsComponent() {
@@ -406,11 +425,13 @@
       ...cards,
       button("Motion: "+(motion?"On":"Off"),function(){return save("motion",!motion);}),
       button("Speed: "+speed,function(){return save("speed",speed==="slow"?"normal":"slow");}),
+      button("Respect system reduced motion: "+(respectReducedMotion?"On":"Off"),function(){return save("respectReducedMotion",!respectReducedMotion);}),
       text("Glass opacity: "+Math.round(opacity*100)+"%",{marginTop:16}),
       button("More transparent",function(){return save("opacity",Math.max(.12,+(opacity-.08).toFixed(2)));}),
       button("More frosted",function(){return save("opacity",Math.min(.76,+(opacity+.08).toFixed(2)));}),
       button("Copy appearance report",copyAppearanceReport),
       text("Motion pauses in the background and respects system reduced motion. Style and glass changes need a reload for cached Discord colors.",{fontSize:14,color:"#b6bdce",marginTop:18}),
+      text("Animation: "+animationStatus,{fontSize:13,color:"#b6bdce",marginTop:16}),
       text("Colors: "+(resolverInstalled?"connected":"not found")+" · Artwork: "+(rootInstalled?"connected":"reload needed"),{fontSize:13,color:"#b6bdce",marginTop:16})
     ));
   }
@@ -430,6 +451,7 @@
         if (stored && typeof stored.opacity === "number" && Number.isFinite(stored.opacity)) opacity = Math.min(0.76, Math.max(0.12, stored.opacity));
         if (stored && ART[stored.styleName]) styleName = stored.styleName;
         if (stored && typeof stored.motion === "boolean") motion = stored.motion;
+        if (stored && typeof stored.respectReducedMotion === "boolean") respectReducedMotion = stored.respectReducedMotion;
         if (stored && (stored.speed === "slow" || stored.speed === "normal")) speed = stored.speed;
         if (stored && typeof stored.glassEdges === "boolean") glassEdges = stored.glassEdges;
       }

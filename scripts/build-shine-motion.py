@@ -12,5 +12,7 @@ with zipfile.ZipFile(target,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9
     for name,content in [('manifest.json',json.dumps(m,indent=2)),('index.js',script)]:
         info=zipfile.ZipInfo(name,date_time=(2026,10,8,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100644<<16;z.writestr(info,content)
 blob=target.read_bytes(); ip=root/'index.json';index=json.loads(ip.read_text())
+old_versions=index['plugins'].get(m['id'],{}).get('versions',{})
 index['plugins'][m['id']]={**{k:m[k] for k in ['name','description','author','icon']},'channels':{'latest':m['version']},'versions':{m['version']:{'url':'https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/'+filename,'sha256':hashlib.sha256(blob).hexdigest(),'size':len(blob),'dependencies':m['dependencies']}}}
+old_versions.update(index['plugins'][m['id']]['versions']);index['plugins'][m['id']]['versions']=old_versions
 ip.write_text(json.dumps(index,indent=2)+'\n');print(filename,len(blob),hashlib.sha256(blob).hexdigest())

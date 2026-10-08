@@ -8,7 +8,7 @@ StyleSheet:{flatten(s){return Array.isArray(s)?Object.assign({},...s.map(v=>this
 AppRegistry:{registerComponent(k,p){registrations[k]=p;}},
 AppState:{currentState:'active',addEventListener(k,cb){listeners[k]=cb;return{remove(){delete listeners[k];}};}},
 AccessibilityInfo:{isReduceMotionEnabled(){return Promise.resolve(reduce);},addEventListener(k,cb){listeners[k]=cb;return{remove(){delete listeners[k];}};}},
-Animated:{Image:'AnimatedImage',Value:class{constructor(v){this.value=v;}setValue(v){this.value=v;}stopAnimation(){}interpolate(opts){return opts;}},timing(v,c){assert.equal(c.useNativeDriver,true);assert.equal(c.isInteraction,false);return c;},sequence(c){return c;},loop(c){return{start(){loopStarts++;},stop(){loopStops++;}};}}};
+Animated:{View:'AnimatedView',Image:'AnimatedImage',Value:class{constructor(v){this.value=v;}setValue(v){this.value=v;}stopAnimation(){}interpolate(opts){return opts;}},timing(v,c){assert.equal(c.useNativeDriver,true);assert.equal(c.isInteraction,false);return c;},sequence(c){return c;},loop(c){return{start(){loopStarts++;},stop(){loopStops++;}};}}};
 const originalCreate=(type,props,...children)=>({type,props:{...props,children}});
 const React={createElement:originalCreate,useState(v){return[v,()=>{}];},useRef(v){return{current:v};},useEffect(fn){effects.push(fn);}};
 const revenge={react:{React,ReactNative:RN,jsxRuntime:{beforeJSX(type,cb){hooks.set(type,cb);return()=>hooks.delete(type);}}},
@@ -31,7 +31,7 @@ assert.equal(tokens.RawColor.WHITE,'#ffffff');
 for(const token of Object.values(defs))assert.match(tokens.resolveSemanticColor('dark',token),/^#[\da-f]{6}$/i);
 const App=()=>null;RN.AppRegistry.registerComponent('Discord',()=>App);const root=registrations.Discord()({});
 const backdrop=root.type(root.props);const art=backdrop.props.children[0];const rendered=art.type(art.props);
-assert.equal(rendered.type,'AnimatedImage');assert.match(rendered.props.source.uri,/^data:image\/jpeg;base64,/);assert.equal(rendered.props.pointerEvents,'none');
+assert.equal(rendered.type,'View');assert.match(rendered.props.children[0].props.source.uri,/^data:image\/jpeg;base64,/);assert.equal(rendered.props.pointerEvents,'none');assert.equal(rendered.props.children[1].type,'AnimatedImage');assert.equal(rendered.props.children[2].type,'AnimatedView');
 // Mount the mocked effects, then drive app lifecycle and reduced motion.
 const disposers=effects.splice(0).map(fn=>fn());await settle();assert.equal(loopStarts,1);
 listeners.change('background');assert.equal(loopStops,1);assert.equal(loopStarts,1);
@@ -49,12 +49,14 @@ const cards=settings.filter(e=>e?.props?.style?.height===142);assert.equal(cards
 const images=new Set(cards.map(c=>c.props.children[0].props.source.uri));assert.equal(images.size,4,'all four unique artworks bundled');
 for(let i=0;i<4;i++){await cards[i].props.onPress();assert.equal(saved.styleName,['mercury','prism','afterimage','jellyfish'][i]);}
 const motionButton=settings.find(e=>e?.props?.children?.[0]?.props?.children?.[0]==='Motion: On');await motionButton.props.onPress();assert.equal(saved.motion,false);
-assert.ok(reloads>=4);options.stop(api);assert.equal(loopStops,3,'stop cancels active native animation immediately');
+assert.ok(reloads>=4);options.stop(api);assert.equal(loopStops,loopStarts,'save/stop cancels all native animations immediately');const startsBeforeReduced=loopStarts;
 assert.equal(React.createElement,originalCreate);assert.equal(tokens.resolveSemanticColor,originalResolve);assert.equal(hooks.size,0);
 assert.equal(root.type(root.props),root.props.children,'retained root is inert');
 for(const dispose of disposers)if(dispose)dispose();assert.deepEqual(Object.keys(listeners),[],'event subscriptions cleaned');
 // System reduce motion on first mount must never start a loop.
-reduce=true;options.preInit();await options.init(api);options.start(api);const again=registrations.Discord()({});const bg=again.type(again.props);bg.props.children[0].type({});
-const ds=effects.splice(0).map(fn=>fn());await settle();assert.equal(loopStarts,3);options.stop(api);for(const d of ds)if(d)d();
+api.jsonStorage.get=async()=>({styleName:"prism",motion:true});reduce=true;RN.AppState.currentState=null;options.preInit();await options.init(api);options.start(api);const again=registrations.Discord()({});const bg=again.type(again.props);bg.props.children[0].type({});
+const ds=effects.splice(0).map(fn=>fn());await settle();assert.equal(loopStarts,startsBeforeReduced);options.stop(api);for(const d of ds)if(d)d();
+// If the OS cannot answer reduced-motion state, do not leave animation paused forever.
+RN.AccessibilityInfo.isReduceMotionEnabled=()=>Promise.reject(Error('unsupported'));options.preInit();await options.init(api);options.start(api);const finalBg=registrations.Discord()({});const finalRoot=finalBg.type(finalBg.props);finalRoot.props.children[0].type({});const fsCleanup=effects.splice(0).map(fn=>fn());await settle();await settle();assert.equal(loopStarts,startsBeforeReduced+1,'unknown AppState and rejected accessibility query recover');options.stop(api);for(const d of fsCleanup)if(d)d();
 console.log('PASS: four artworks, loader, no early JSX hook, semantic hex, profile RGB, immutable props, opaque sheet backing, settings persistence, native animations, app pause, reduced motion, stop/unmount cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});
