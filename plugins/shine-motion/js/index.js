@@ -104,7 +104,7 @@
     return sheetBackgrounds.get(type);
   }
   function copyAppearanceReport() {
-    var report = JSON.stringify({ pluginVersion: "0.1.1", style: styleName, motion: motion, speed: speed, animationStatus: animationStatus, respectReducedMotion: respectReducedMotion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
+    var report = JSON.stringify({ pluginVersion: "0.1.2", style: styleName, motion: motion, speed: speed, animationStatus: animationStatus, respectReducedMotion: respectReducedMotion, observedLightTokens: lightTokenSeen, lastResolverTheme: lastResolverTheme,
       samples: Array.from(appearanceSamples.values()) }, null, 2);
     revenge.externals.ReactNativeClipboard.Clipboard.setString(report);
   }
@@ -119,14 +119,19 @@
     if (level >= 0.08) return "#101420";
     return "#0b0e18";
   }
-  function nativeSurface(color) {
-    switch(color) {
-      case "#0b0e18": return rgba(opacity);
-      case "#101420": return rgba(Math.min(.96,opacity+.08));
-      case "#121623": return rgba(Math.min(.96,opacity+.16));
-      case "#131724": return rgba(Math.min(.96,opacity+.58));
-      default: return undefined;
-    }
+  function nativeSurface(color, style) {
+    // Screen layers must be almost clear: stacking several 30% panels hid the artwork.
+    if (color === "#131724") return rgba(Math.min(.94,opacity+.55));
+    var c = colorParts(color);
+    if (!c || c.a < .6) return undefined;
+    var neutral = Math.max(c.r,c.g,c.b)-Math.min(c.r,c.g,c.b) <= 22;
+    var dark = Math.max(c.r,c.g,c.b) <= 115 && Math.max(c.r,c.g,c.b) >= 10;
+    if (!neutral || !dark) return undefined;
+    var rounded = style && (style.borderRadius >= 8 || style.borderTopLeftRadius >= 8);
+    var screen = style && (style.flex === 1 || style.flexGrow === 1 || style.height === "100%" ||
+      typeof style.height === "number" && style.height > 180 ||
+      style.position === "absolute" && style.top === 0 && style.bottom === 0);
+    return rgba(rounded && !screen ? Math.max(.14,opacity) : .025);
   }
 
   function colorParts(value) {
@@ -156,7 +161,7 @@
     if (!enabled || !props || props.__shineMotion) return props;
     var name = typeof type === "string" ? type : type && (type.displayName || type.name);
     // Restrict changes to leaf renderers observed on-device, not Discord color helpers.
-    if (!name || !/^(RCTView|ReanimatedView|ClipView|RNLinearGradient|RNSScreen|RNSScreenContentWrapper|RNSScreenStackHeaderConfig|DCDChat|MessagesConnected|NavTTIView|DCDChatList|ProfileBanner)$/.test(name)) return props;
+    if (!name || !/^(View|RCTView|RCTScrollView|ScrollView|AndroidHorizontalScrollView|AndroidHorizontalScrollContentView|ReanimatedView|ClipView|RNLinearGradient|RNSScreen|ScreenContentWrapper|RNSScreenContentWrapper|ScreenStackHeaderConfig|RNSScreenStackHeaderConfig|DCDChat|MessagesConnected|NavTTIView|DCDChatList|ProfileBanner)$/.test(name)) return props;
     var next;
     function put(key, value) { if (!next) next = Object.assign({}, props); next[key] = value; }
     var RN = revenge.react.ReactNative;
@@ -171,8 +176,12 @@
         typeof style.height === "number" && style.height > 180 ||
         style.position === "absolute" && style.top === 0 && style.bottom === 0;
       var neutral = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < 18;
-      var mapped = typeof style.backgroundColor === "string" ? nativeSurface(style.backgroundColor.toLowerCase()) : undefined;
+      var mapped = typeof style.backgroundColor === "string" ? nativeSurface(style.backgroundColor.toLowerCase(),style) : undefined;
       var background = mapped;
+      if (background === undefined && c.numeric) {
+        var hex = "#" + ((c.r<<16)|(c.g<<8)|c.b).toString(16).padStart(6,"0");
+        if (c.a >= .6) background = nativeSurface(hex,style);
+      }
       // Profile colors keep their RGB; only the alpha of broad surfaces is capped.
       if (background === undefined && (big || neutral && Math.min(c.r, c.g, c.b) >= 220)) {
         background = tintAlpha(style.backgroundColor, chat ? opacity : big ? Math.max(opacity, 0.55) : opacity);
@@ -189,7 +198,8 @@
         var original = props[key];
         if (name === "ProfileBanner" && key === "backgroundColor" && typeof original === "number" && original >= 0 && original <= 0xffffff)
           original = "#" + original.toString(16).padStart(6, "0");
-        var color = tintAlpha(original, name === "ProfileBanner" ? Math.max(opacity, 0.55) : opacity);
+        var mappedHeader = typeof original === "string" && name !== "ProfileBanner" ? nativeSurface(original,{}) : undefined;
+        var color = mappedHeader === undefined ? tintAlpha(original, name === "ProfileBanner" ? Math.max(opacity, 0.55) : opacity) : mappedHeader;
         if (color !== props[key]) put(key, color);
       }
     });
@@ -377,12 +387,12 @@
         if (!props[key]) return;
         var style = RN.StyleSheet.flatten(props[key]);
         if (!style || typeof style.backgroundColor !== "string") return;
-        var nativeColor = nativeSurface(style.backgroundColor.toLowerCase());
+        var nativeColor = nativeSurface(style.backgroundColor.toLowerCase(),style);
         if (nativeColor === undefined) return;
         var overrides = { backgroundColor: nativeColor };
         if (glassEdges && typeof style.borderRadius === "number" && style.borderRadius >= 8) {
           overrides.borderColor = accent() + "33";
-          overrides.borderWidth = Math.min(style.borderWidth || 0, 0.5);
+          overrides.borderWidth = .5;
         }
         if (!next) next = Object.assign({}, props);
         next[key] = [props[key], overrides];

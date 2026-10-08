@@ -187,7 +187,7 @@
       "author": "Cuddled",
       "icon": "PaletteIcon",
       "channels": {
-        "latest": "0.1.1"
+        "latest": "0.1.2"
       },
       "versions": {
         "0.1.0": {
@@ -207,6 +207,19 @@
           "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.shine-motion@0.1.1.zip",
           "sha256": "36593f2b9f964317d1dd4f64a7051beb9c31b916ba18d1efd8c1c6752200ea66",
           "size": 834501,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "0.1.2": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.shine-motion@0.1.2.zip",
+          "sha256": "45edbe7677a9ba7fbd67aa5a5109c0db80a41072fa30b382dd422f4b140a6a3a",
+          "size": 834753,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"

@@ -40,6 +40,22 @@ listeners.reduceMotionChanged(true);assert.equal(loopStops,2);
 listeners.change('active');assert.equal(loopStarts,2,'reduced motion prevents restart');
 listeners.reduceMotionChanged(false);assert.equal(loopStarts,3);
 const frozen=Object.freeze({style:Object.freeze({backgroundColor:'#0b0e18',borderRadius:16})});const mapped=hooks.get('View')(['View',frozen]);assert.notEqual(mapped[1],frozen);assert.equal(mapped[1].style[1].backgroundColor,'rgba(7,9,17,0.2)');
+// Replay opaque DM, member-page and settings surface colors from device screenshots.
+for (const color of ['#38383e','#36373f','#232428','#28282d','#121214','#313338']) {
+ const props=Object.freeze({style:Object.freeze({backgroundColor:color})});
+ const view=React.createElement('RCTView',props);
+ assert.equal(view.props.style[1].backgroundColor,'rgba(7,9,17,0.025)','cached dark surface becomes nearly clear');
+ const twice=React.createElement('RCTView',view.props);
+ assert.equal(twice.props.style,view.props.style,'alpha does not compound');
+}
+const card=React.createElement('View',{style:{backgroundColor:'#38383e',borderRadius:20}});
+assert.equal(card.props.style[1].backgroundColor,'rgba(7,9,17,0.2)');
+const nativePanel=React.createElement('RCTView',{style:{backgroundColor:0xff38383e>>>0}});
+assert.equal(nativePanel.props.style[1].backgroundColor,'rgba(7,9,17,0.025)');
+assert.equal(React.createElement('RCTView',{style:{backgroundColor:'#5865f2'}}).props.style.backgroundColor,'#5865f2','brand buttons preserved');
+assert.equal(React.createElement('RCTView',{style:{backgroundColor:'#000000'}}).props.style.backgroundColor,'#000000','black masks preserved');
+const floating=React.createElement('View',{style:{backgroundColor:'#131724'}});
+assert.equal(floating.props.style[1].backgroundColor,'rgba(7,9,17,0.75)','floating surfaces remain legible');
 const gradient=React.createElement('RNLinearGradient',{colors:['#ffa5d5','#00000000']});assert.equal(gradient.props.colors[0],'rgba(255,165,213,0.55)');assert.equal(gradient.props.colors[1],'#00000000');
 const textStyle={color:'#ffffff'};assert.equal(React.createElement('RCTText',{style:textStyle}).props.style,textStyle);
 function Background(){}const props={animatedIndex:{},animatedPosition:{},style:{height:600,backgroundColor:'#ffffff'}};
