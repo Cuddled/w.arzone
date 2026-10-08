@@ -1,11 +1,12 @@
 (function () {
   "use strict";
-  var enabled = false, api, data = { accounts: {}, indicator: "📌" };
+  var enabled = false, api, data = { accounts: {}, pinColor: "#a855f7" };
   var channelStore, userStore, cleanups = [], stores = new Set(), patched = new WeakSet();
   var listeners = new Set(), rowNames = new Set(), sortHooks = [], rowHooks = 0;
   var writeQueue = Promise.resolve(), error = "", search = "";
   var rowsInstalled = false, wrappers = new Map(), revision = 0, listHooks = 0, listSamples = new Map();
   var React = revenge.react.React, RN = revenge.react.ReactNative;
+  var PinColorContext, pinColorDraft = "#a855f7", pinIconNames = new Set(), coloredPinRenders = 0;
   function account() {
     var user = userStore && userStore.getCurrentUser();
     return user && typeof user.id === "string" ? user.id : undefined;
@@ -125,25 +126,37 @@
     if (!types) wrappers.set(type, types = {});
     if (!types[kind]) {
       types[kind] = function StickyDMRender(props) {
+        if (kind === "icon") {
+          var color = React.useContext(PinColorContext);
+          var iconProps = Object.assign({}, props, { __stickyDM: true });
+          if (enabled && color) {
+            iconProps.color = color;
+            iconProps.style = [props.style, { tintColor: color }];
+            coloredPinRenders++;
+          }
+          return React.createElement(type, iconProps);
+        }
         useRefresh();
         var raw = Object.assign({}, props, { __stickyDM: true });
         if (!enabled) return React.createElement(type, raw);
         if (kind === "list") return React.createElement(type, listProps(raw));
         var c = props.channel || channel(props.channelId);
-        var original = React.createElement(type, rowProps(type, raw, true));
-        if (!c || !pins().includes(c.id) || !data.indicator) return original;
-        // Overlay only the indicator; the row's name, avatar and unread state
-        // remain Discord's original output, even when the name is a React node.
-        return React.createElement(RN.View, { style: { position: "relative", alignSelf: "stretch" }, __stickyDM: true },
-          original, React.createElement(RN.Text, { pointerEvents: "none", accessible: true,
-            accessibilityLabel: "Pinned conversation", __stickyDM: true,
-            style: { position: "absolute", right: 40, top: 10, fontSize: 15 } }, data.indicator));
+        var pinned = !!(c && pins().includes(c.id));
+        var row = rowProps(type, raw, true);
+        // This is a visual prop only. No channel/favorite store is changed.
+        if (pinned) row = Object.assign({}, row, { favorite: true });
+        return React.createElement(PinColorContext.Provider, { value: pinned ? data.pinColor : null, __stickyDM: true },
+          React.createElement(type, row));
       };
     }
     return types[kind];
   }
   function renderType(type, props) {
     if (!enabled || !props || props.__stickyDM) return type;
+    if (/^Pin(?:[A-Z][A-Za-z]*)?Icon$/.test(typeName(type))) {
+      pinIconNames.add(typeName(type));
+      return wrapperFor(type, "icon");
+    }
     if (isDMList(props)) return wrapperFor(type, "list");
     if (typeName(type) === "MessagesItemChannelContent" && props.channel &&
         (props.channel.type === 1 || props.channel.type === 3)) {
@@ -161,11 +174,6 @@
     if (!c || (c.type !== 1 && c.type !== 3) || typeof c.id !== "string") return props;
     rowNames.add(name);
     var next = Object.assign({}, props), pinned = pins().indexOf(c.id) >= 0;
-    if (pinned && data.indicator && name !== "MessagesItemChannelContent") {
-      ["name", "title"].forEach(function (key) {
-        if (typeof props[key] === "string") next[key] = props[key] + " " + data.indicator;
-      });
-    }
     if (typeof props.onLongPress === "function" && RN.Alert && RN.Alert.alert) {
       var original = props.onLongPress;
       next.onLongPress = function () {
@@ -215,15 +223,29 @@
       error ? text(error, { color: "#a62030" }) : null,
       text("Pinned conversations", { fontWeight: "700", marginTop: 12 }),
       pins().length ? pins().map(function (id, i) { return React.createElement(RN.View, { key: id, style: { marginVertical: 6 } },
-        text((i + 1) + ". " + label(id) + (data.indicator ? " " + data.indicator : "")),
+        text((i + 1) + ". " + label(id)),
         React.createElement(RN.View, { style: { flexDirection: "row", gap: 8 } },
           i > 0 ? button("↑", function () { return move(id, -1); }) : null,
           i < pins().length - 1 ? button("↓", function () { return move(id, 1); }) : null,
           button("Unpin", function () { return toggle(id); })));
       }) : text("No pins yet."),
-      text("Indicator beside names", { fontWeight: "700", marginTop: 20 }),
-      React.createElement(RN.TextInput, { value: data.indicator, maxLength: 12, placeholder: "📌, ⭐, an emoji, or leave empty", placeholderTextColor: "#696d76", style: { color: "#22252b", padding: 12, backgroundColor: "#e9eaed", borderRadius: 12 },
-        onChangeText: function (value) { data.indicator = value; refresh(); persist(); } }),
+      text("Plugin pin color", { fontWeight: "700", marginTop: 20 }),
+      text("Only plugin pins use this color. Normal Discord pins keep their default color.", { fontSize: 13, marginVertical: 8 }),
+      React.createElement(RN.View, { style: { flexDirection: "row", gap: 8, flexWrap: "wrap" } },
+        ["#a855f7", "#ec4899", "#3b82f6", "#22c55e", "#f59e0b", "#202126"].map(function (color) {
+          return React.createElement(RN.Pressable, { key: color, accessibilityLabel: "Pin color " + color,
+            onPress: function () { data.pinColor = color; pinColorDraft = color; refresh(); return persist(); },
+            style: { width: 34, height: 34, borderRadius: 17, backgroundColor: color,
+              borderWidth: data.pinColor === color ? 3 : 0, borderColor: "#ffffff" } });
+        })),
+      React.createElement(RN.TextInput, { value: pinColorDraft, maxLength: 7, autoCapitalize: "none", autoCorrect: false,
+        placeholder: "#a855f7", placeholderTextColor: "#696d76",
+        style: { color: "#22252b", padding: 12, marginTop: 8, backgroundColor: "#e9eaed", borderRadius: 12 },
+        onChangeText: function (value) { pinColorDraft = value; refresh(); } }),
+      button("Apply custom color", function () {
+        if (!/^#[0-9a-f]{6}$/i.test(pinColorDraft)) { error = "Enter a six-digit hex color, such as #a855f7."; refresh(); return Promise.resolve(); }
+        data.pinColor = pinColorDraft.toLowerCase(); error = ""; refresh(); return persist();
+      }),
       text("Add a pin", { fontWeight: "700", marginTop: 20 }),
       React.createElement(RN.TextInput, { value: search, placeholder: "Search open DMs", placeholderTextColor: "#696d76", style: { color: "#22252b", padding: 12, backgroundColor: "#e9eaed", borderRadius: 12 }, onChangeText: function (value) { search = value; refresh(); } }),
       available.map(function (id) { return React.createElement(RN.View, { key: id }, button("Pin " + label(id), function () { return toggle(id); })); }),
@@ -231,7 +253,7 @@
       text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · List renders: " + listHooks + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
       text("This beta needs verification on your Discord build. Name indicators and long-press shortcuts depend on the DM row component.", { fontSize: 13, marginTop: 10 }),
       button("Copy compatibility report", function () {
-        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.2", pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
+        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.3", pinIconNames: Array.from(pinIconNames), coloredPinRenders: coloredPinRenders, pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
       }));
   }
   function connect() {
@@ -250,11 +272,14 @@
           if (Array.isArray(stored.accounts[id])) data.accounts[id] = Array.from(new Set(stored.accounts[id].filter(function (v) { return typeof v === "string" && /^\d+$/.test(v); })));
         });
       }
-      if (stored && typeof stored.indicator === "string") data.indicator = stored.indicator.slice(0, 12);
+      if (stored && typeof stored.pinColor === "string" && /^#[0-9a-f]{6}$/i.test(stored.pinColor)) data.pinColor = stored.pinColor.toLowerCase();
+      pinColorDraft = data.pinColor;
       refresh();
     },
-    start: function (value) { api = value; enabled = true; connect(); refresh();
+    start: function (value) { api = value; enabled = true;
+      if (!PinColorContext) PinColorContext = React.createContext(null);
+      connect(); refresh();
       if (api.plugin && api.plugin.startedLate) api.plugin.requireReload(); },
-    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; rowsInstalled = false; wrappers.clear(); listSamples.clear(); listHooks = 0; }
+    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; rowsInstalled = false; wrappers.clear(); listSamples.clear(); listHooks = 0; pinIconNames.clear(); coloredPinRenders = 0; }
   }) };
 })()

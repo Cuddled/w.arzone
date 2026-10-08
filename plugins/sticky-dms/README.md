@@ -1,37 +1,31 @@
 # Sticky DMs — Revenge Next beta
 
-Keep selected open DMs and group DMs at the top in a manually chosen order. New messages do not change the pinned order; unpinned conversations retain Discord's normal relative order. Pins are saved locally per Discord account. The plugin changes returned sort arrays, not message timestamps or channel records.
+Keep selected open DMs and group DMs at the top in a manually chosen order. New messages do not change the pinned order; unpinned conversations retain Discord’s normal relative order. Pins are saved locally per Discord account.
 
 ## Install and use
 
-Use the same static repository as Marble Glass:
+Refresh this repository under Revenge → Plugins → Advanced → Repositories:
 
 ```
 https://raw.githubusercontent.com/Cuddled/w.arzone/main/
 ```
 
-Refresh the repository under Revenge → Plugins → Advanced → Repositories, install **Sticky DMs**, and enable it. Open the DM list, then open the plugin settings. Search existing DMs, select **Pin**, and use the arrows to choose the order. Change the indicator field to a pin, star, emoji or an empty string.
+Install **Sticky DMs**, enable it, then force-stop and reopen Discord. Open the DM list, then open plugin settings. Search existing DMs, select **Pin**, and use the arrows to choose their order.
 
-Version 0.1.1 targets the mobile `MessagesItemChannelContent` row and adds an indicator in the name area without replacing Discord’s text or unread indicators. On recognized DM rows with a long-press prop it also adds a Pin/Unpin prompt. **Original DM options** opens the original handler. Row structure varies by Discord version; the settings interface provides pinning independently of these row integrations.
+In **Plugin pin color**, choose a preset or enter a six-digit hex color and select **Apply custom color**. Plugin pins use Discord’s existing pin glyph with the selected color. Ordinary Discord pins keep their normal color unless that conversation is also pinned by this plugin. There is no additional emoji badge or overlay. Old emoji settings are ignored while saved pins are retained.
 
-Force-stop and reopen Discord after installing this update. The update installs hooks after Revenge has initialized its own JSX dispatcher. A full restart removes any earlier recursive proxy chain. Settings changes update mounted plugin list/row wrappers; changing the native layout still needs verification on-device.
+On recognized DM rows with a long-press prop, the plugin adds a Pin/Unpin prompt. **Original DM options** opens the original handler. Settings provide pinning independently of this optional shortcut.
 
-## Compatibility
+## Rendering and compatibility
 
-This first beta is for Revenge Next, matching the loader format used by Marble Glass. It has not been tested on an Android device. It intercepts the anonymous memoized mobile DM list identified by `listItemHeight` and a `data` object containing `channels`, `channelFavorites`, `sections`, and `dataKey`. It reorders the rendered channel records and invalidates the layout memo key. Section counts stay unchanged because entries are reordered rather than removed. It also hooks private-channel sorting getters as a fallback for builds that read those. Unrecognized return shapes are left unchanged. No method that exists only on a general guild-channel store is patched as a private sort getter.
+The mobile list is identified by `listItemHeight` and a `data` object containing `channels`, `channelFavorites`, `sections`, and `dataKey`. The plugin reorders visual records and changes the layout cache key. Section counts remain identical. Native channel records, favorites membership, and message timestamps are not changed.
 
-The settings page shows connected sort hooks and observed row hooks. If pinning does not change the list, open the DM list and use **Copy compatibility report** in settings. The report contains method and component names, connection flags, pin counts, rendered list counts and data field names, with no user names, DM contents, channel IDs or account IDs.
+The row is `MessagesItemChannelContent`, unwrapped through memo/forwardRef. A layout-free context provider gives only plugin-pinned rows a color override. A plugin pin passes `favorite: true` to the rendered row locally so it uses the native glyph even without a native favorite. Pin icon components (`PinIcon` and named variants) read the scoped color. No icon SVG or new icon is drawn. Other icons and rows without a plugin pin retain their original color props.
 
-Mock tests cover stable pin order after incoming-message reorder, immutable original arrays, account isolation, saving/restarting, string name indicators, original long-press access and cleanup. Installed-device ordering and row indicators still need verification. The plugin lists existing open DMs only; it does not open closed DMs, contact anyone or make network requests.
+This is a beta. The list/row bindings match a [published Discord Android 342.16 capture](https://github.com/dataterminals/RevengeQuickFormat/blob/main/docs/surfaces.md#direct-message-list). The user’s later screenshot confirmed the row wrapper was active, but the new native icon tint still needs verification on the installed build. If it remains gray, open the DM list and select **Copy compatibility report** in settings. That includes pin icon names and a colored-render count, without message text, channel IDs, user names, or account IDs.
 
-## Version 0.1.1 evidence and validation
+## Checks and history
 
-The 0.1.0 getters were connected on the user's Android build but did not change the visible list, and none of the guessed row names matched. A published [Discord Android 342.16 surface capture](https://github.com/dataterminals/RevengeQuickFormat/blob/main/docs/surfaces.md#direct-message-list) documents the anonymous memo list data structure and `MessagesItemChannelContent` row. The update uses these observed bindings, unwraps memo/forwardRef component names, and intercepts the JSX runtime. Version 0.1.1 installed that interception too early; version 0.1.2 corrects the lifecycle timing.
+Mock checks cover fixed order after new messages, immutable caches, account isolation, saved pins after restart, mobile list memoization, unchanged section counts, row unread props, reuse of the original pin icon, ordinary pin color preservation, custom hex validation, original long-press access, and cleanup.
 
-Additional mocks reproduce that anonymous list without consulting store getters, a same-key new-message reorder, favorites occupying a separate visual section, unchanged section counts, immutable original data and a row whose name is not supplied as a string prop. A custom badge is rendered independently of name props. This evidence is from a nearby Android build and automated fixtures; the user's current build still needs confirmation.
-
-## Version 0.1.2 recursion fix
-
-Removed the preInit JSX patch. Revenge's JSX dispatcher captures a raw JSX factory and may call it from insteadJSX hooks. When Sticky DMs patched that factory first, the captured value became a mutable patcher proxy; adding the core dispatcher later could make it call itself through that proxy. The resulting recursion can occur on profiles where other plugins use insteadJSX, even though Sticky DMs does not target those profiles.
-
-Regression checks model Revenge's stable proxy hook chain: the early-capture sequence reproduces RangeError, while installing Sticky DMs after the core capture allows a profile insteadJSX path to finish. Existing ordering, indicators, persistence and cleanup tests also pass. Android verification remains required.
+0.1.0 used connected store getters that did not control the user’s visible list. 0.1.1 added the mobile list and row bindings but installed a JSX hook too early. 0.1.2 removed the preInit hook to fix recursive proxies. A regression check reproduces the early-capture failure and confirms profile rendering works when core JSX initialization happens first. 0.1.3 replaces the emoji overlay with the native pin glyph and selectable row-scoped color. No Android device tests have been run in this workspace.
