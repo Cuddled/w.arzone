@@ -107,10 +107,10 @@
     },
     "cuddled.sticky-dms": {
       "versions": {
-        "0.1.0-beta.1": {
-          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.sticky-dms@0.1.0-beta.1.zip",
-          "sha256": "659c987a2826ea4ff74fba60b7fd596268515d2c69abf02c5b6e138ac4a6e55f",
-          "size": 4119,
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.sticky-dms@0.1.0.zip",
+          "sha256": "17eb17907f2575fcc7c9d390d264b4e5f2ad3251a05cce524ed8e85912ac4902",
+          "size": 4109,
           "dependencies": {
             "revenge.api": {
               "version": ">=1 <2"
@@ -126,7 +126,7 @@
       "author": "Cuddled",
       "icon": "PinIcon",
       "channels": {
-        "latest": "0.1.0-beta.1"
+        "latest": "0.1.0"
       }
     }
   }

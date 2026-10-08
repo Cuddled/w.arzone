@@ -4,6 +4,10 @@ import json, zipfile, hashlib
 root = Path(__file__).resolve().parent.parent
 folder = root / 'plugins/sticky-dms'
 manifest = json.loads((folder / 'manifest.json').read_text())
+# Next accepts numeric version components with a single optional label, not SemVer prerelease chains.
+import re
+if not re.fullmatch(r'\d+\.\d+\.\d+', manifest['version']):
+    raise SystemExit('Use a plain three-part numeric version for this plugin')
 filename = manifest['id'] + '@' + manifest['version'] + '.zip'
 target = root / 'pool' / filename
 with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

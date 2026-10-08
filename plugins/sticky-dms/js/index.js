@@ -153,7 +153,7 @@
       text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
       text("This beta needs verification on your Discord build. Name indicators and long-press shortcuts depend on the DM row component.", { fontSize: 13, marginTop: 10 }),
       button("Copy compatibility report", function () {
-        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.0-beta.1", sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
+        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.0", sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
       }));
   }
   function connect() {
