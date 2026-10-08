@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "name": "Cuddled \u00b7 Marble Glass",
+  "name": "Cuddled · Marble Glass",
   "description": "White marble and translucent glass for Revenge Next.",
   "plugins": {
     "cuddled.marble-glass": {
@@ -179,6 +179,30 @@
       "icon": "PinIcon",
       "channels": {
         "latest": "0.1.4"
+      }
+    },
+    "cuddled.shine-motion": {
+      "name": "Shine + Motion",
+      "description": "Four animated dark glass styles: Mercury, Prism, Afterimage and Jellyfish. Embedded artwork, motion controls and reduced-motion support.",
+      "author": "Cuddled",
+      "icon": "PaletteIcon",
+      "channels": {
+        "latest": "0.1.0"
+      },
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.shine-motion@0.1.0.zip",
+          "sha256": "261ed6ebc46d61119547f23e2f12f11940d44e6c8f1aef52cc26e0fe38604d87",
+          "size": 157812,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
       }
     }
   }
