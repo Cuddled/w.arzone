@@ -17,21 +17,45 @@ const api={jsonStorage:{async get(){return {accounts:{100:['2','1'],200:['3']},i
 function flatten(node){if(!node)return [];if(Array.isArray(node))return node.flatMap(flatten);return typeof node==='object'?[node,...flatten(node.props?.children)]:[];}
 function button(name){return flatten(options.SettingsComponent()).find(n=>n.type==='Pressable'&&n.props.children[0]?.props.children[0]===name)}
 (async()=>{
- await options.init(api);options.start(api);
+ options.preInit();await options.init(api);options.start(api);
  assert.deepEqual([...sortStore.getPrivateChannelIds()],['2','1','3']);
  order=['1','3','2'];assert.deepEqual([...sortStore.getPrivateChannelIds()],['2','1','3'],'new messages cannot reorder pins');
  assert.deepEqual(order,['1','3','2'],'cached source never mutated');
  assert.deepEqual([...sortStore.getSortedChannels()].map(x=>x.channelId),['2','1','3']);
  assert.deepEqual([...channelStore.getSortedPrivateChannels()].map(x=>x.id),['2','1','3']);
  currentUser='200';assert.deepEqual([...sortStore.getPrivateChannelIds()],['3','1','2'],'pins isolated per account');currentUser='100';
+ // Reproduce the anonymous memoized mobile list, which reads no store getter.
+ const listType={type:function(){}};
+ const mobileData=Object.freeze({channels:Object.freeze([{channelId:'3',lastMessageId:'999'},{channelId:'1',lastMessageId:'100'},{channelId:'2',lastMessageId:'200'}]),channelFavorites:Object.freeze([]),sections:Object.freeze([1,3,0,0,0]),dataKey:'20'});
+ const mobile=React.createElement(listType,{listItemHeight:72,data:mobileData});
+ assert.notEqual(mobile.type,listType,'anonymous memo list identified by captured prop structure');
+ const actual=mobile.type(mobile.props);
+ assert.deepEqual([...actual.props.data.channels].map(x=>x.channelId),['2','1','3'],'visible mobile list ordered independently of getters');
+ assert.equal(actual.props.data.sections,mobileData.sections,'section counts unchanged');
+ assert.notEqual(actual.props.data.dataKey,mobileData.dataKey,'layout memo key invalidated');
+ assert.equal(mobileData.channels[0].channelId,'3','original memo data immutable');
+ const updated=React.createElement(listType,{listItemHeight:72,data:{...mobileData,channels:[{channelId:'1',lastMessageId:'9999'},{channelId:'3',lastMessageId:'999'},{channelId:'2',lastMessageId:'200'}]}});
+ assert.deepEqual([...updated.type(updated.props).props.data.channels].map(x=>x.channelId),['2','1','3'],'message changes cannot move fixed pins');
+ const withFavorites=React.createElement(listType,{listItemHeight:72,data:{...mobileData,channels:[{channelId:'1'},{channelId:'2'}],channelFavorites:[{channelId:'3',isFavorite:true}],sections:[1,2,1]}});
+ const split=withFavorites.type(withFavorites.props).props.data;
+ assert.deepEqual([...split.channelFavorites].map(x=>x.channelId),['2']);
+ assert.deepEqual([...split.channels].map(x=>x.channelId),['1','3']);
+ assert.equal(split.channels[1].isFavorite,true,'native favorite membership unchanged');
+ assert.deepEqual([...split.sections],[1,2,1]);
+ const contentType={type:function MessagesItemChannelContent(){}};
+ const content=React.createElement(contentType,{channel:channels['2'],favorite:false,hasUnreadMessages:true});
+ const rendered=content.type(content.props);
+ assert.equal(rendered.type,'View');
+ assert.equal(rendered.props.children[1].props.children[0],'⭐','indicator works without string name/title props');
+ assert.equal(rendered.props.children[0].props.hasUnreadMessages,true);
  let originals=0;const props=Object.freeze({channel:channels['2'],title:'Friend 2',onLongPress(){originals++}});
  const row=React.createElement('DMListItem',props);
  assert.equal(row.props.title,'Friend 2 ⭐');assert.equal(props.title,'Friend 2');
  row.props.onLongPress();alert[2][1].onPress();assert.equal(originals,1,'original menu accessible');
  await button('↓').props.onPress();assert.deepEqual([...sortStore.getPrivateChannelIds()],['1','2','3']);
  await button('Pin Friend 3').props.onPress();assert.deepEqual([...saved.accounts['100']],['1','2','3']);
- await button('Copy compatibility report').props.onPress();assert.ok(!report.includes('Friend'));assert.ok(!report.includes('recipients'));
+ await button('Copy compatibility report').props.onPress();assert.ok(!report.includes('Friend'));assert.ok(!report.includes('recipients'));assert.ok(JSON.parse(report).listHooks>0);
  options.stop();assert.equal(sortStore.getPrivateChannelIds,origSort);assert.equal(React.createElement,origCreate);
  const again=vm.runInContext('('+fs.readFileSync('plugins/sticky-dms/js/index.js','utf8')+').default',context);await again.init({jsonStorage:{get:async()=>saved,set:api.jsonStorage.set}});again.start(api);assert.deepEqual([...sortStore.getPrivateChannelIds()],['1','2','3'],'pins persist across restart');again.stop();
- console.log('PASS: fixed ordering after messages, unpinned order, immutable caches, account isolation, persistence, indicator, original menu and cleanup');
+ console.log('PASS: fixed ordering after messages, unpinned order, immutable caches, account isolation, persistence, mobile memo list, native row indicator, original menu and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1});

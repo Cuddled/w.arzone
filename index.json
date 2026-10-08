@@ -119,6 +119,19 @@
               "version": "*"
             }
           }
+        },
+        "0.1.1": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.sticky-dms@0.1.1.zip",
+          "sha256": "b3e1f4552e7be1e22148854a475eda476da17ae6855bd21b72b4b6eaf8ad68eb",
+          "size": 5378,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       },
       "name": "Sticky DMs",
@@ -126,7 +139,7 @@
       "author": "Cuddled",
       "icon": "PinIcon",
       "channels": {
-        "latest": "0.1.0"
+        "latest": "0.1.1"
       }
     }
   }

@@ -4,6 +4,7 @@
   var channelStore, userStore, cleanups = [], stores = new Set(), patched = new WeakSet();
   var listeners = new Set(), rowNames = new Set(), sortHooks = [], rowHooks = 0;
   var writeQueue = Promise.resolve(), error = "", search = "";
+  var rowsInstalled = false, wrappers = new Map(), revision = 0, listHooks = 0, listSamples = new Map();
   var React = revenge.react.React, RN = revenge.react.ReactNative;
   function account() {
     var user = userStore && userStore.getCurrentUser();
@@ -28,6 +29,7 @@
       }).map(function (entry) { return entry.value; });
   }
   function refresh() {
+    revision++;
     listeners.forEach(function (fn) { fn(); });
     stores.forEach(function (store) { if (typeof store.emitChange === "function") store.emitChange(); });
   }
@@ -78,16 +80,88 @@
     var user = userStore && userStore.getUser && userStore.getUser(recipient);
     return user && (user.globalName || user.global_name || user.username) || "Direct message · " + id;
   }
-  function rowProps(type, props) {
-    if (!enabled || !props || props.__stickyDM) return props;
-    var name = typeof type === "string" ? type : type && (type.displayName || type.name);
+  function typeName(type) {
+    for (var i = 0; type && i < 5; i++) {
+      if (typeof type === "string") return type;
+      if (type.displayName) return type.displayName;
+      if (type.name) return type.name;
+      type = type.type || type.render;
+    }
+    return "anonymous";
+  }
+  function isDMList(props) {
+    var d = props && props.data;
+    return !!(props && props.listItemHeight !== undefined && d &&
+      Array.isArray(d.channels) && Array.isArray(d.sections) && "dataKey" in d &&
+      d.channels.every(function (item) { return item && typeof item.channelId === "string"; }));
+  }
+  function listProps(props) {
+    var d = props.data;
+    listHooks++;
+    listSamples.set("main", { dataKeys: Object.keys(d), sectionCounts: d.sections.slice(0, 12),
+      channelCount: d.channels.length, favoriteCount: Array.isArray(d.channelFavorites) ? d.channelFavorites.length : 0,
+      pinnedMatches: d.channels.filter(function (item) { return pins().includes(item.channelId); }).length });
+    if (!pins().length) return props;
+    var next = Object.assign({}, d), favorites = d.channelFavorites;
+    // Redistribute visual slots, not native favorite membership. Section counts
+    // remain identical: no removed rows, duplicated cells or changed timestamps.
+    if (Array.isArray(favorites) && favorites.every(function (item) { return item && typeof item.channelId === "string"; }) &&
+        !favorites.some(function (f) { return d.channels.some(function (c) { return c.channelId === f.channelId; }); })) {
+      var sorted = reorder(favorites.concat(d.channels));
+      next.channelFavorites = sorted.slice(0, favorites.length);
+      next.channels = sorted.slice(favorites.length);
+    } else {
+      next.channels = reorder(d.channels);
+      if (Array.isArray(favorites)) next.channelFavorites = reorder(favorites);
+    }
+    // Layout is memoized on dataKey; include the exact rendered order and our
+    // settings revision so unchanged incoming keys cannot reuse an old layout.
+    next.dataKey = String(d.dataKey) + "|sticky:" + revision + ":" +
+      (next.channelFavorites || []).concat(next.channels).map(idOf).join(",");
+    return Object.assign({}, props, { data: next });
+  }
+  function wrapperFor(type, kind) {
+    var types = wrappers.get(type);
+    if (!types) wrappers.set(type, types = {});
+    if (!types[kind]) {
+      types[kind] = function StickyDMRender(props) {
+        useRefresh();
+        var raw = Object.assign({}, props, { __stickyDM: true });
+        if (!enabled) return React.createElement(type, raw);
+        if (kind === "list") return React.createElement(type, listProps(raw));
+        var c = props.channel || channel(props.channelId);
+        var original = React.createElement(type, rowProps(type, raw, true));
+        if (!c || !pins().includes(c.id) || !data.indicator) return original;
+        // Overlay only the indicator; the row's name, avatar and unread state
+        // remain Discord's original output, even when the name is a React node.
+        return React.createElement(RN.View, { style: { position: "relative", alignSelf: "stretch" }, __stickyDM: true },
+          original, React.createElement(RN.Text, { pointerEvents: "none", accessible: true,
+            accessibilityLabel: "Pinned conversation", __stickyDM: true,
+            style: { position: "absolute", right: 40, top: 10, fontSize: 15 } }, data.indicator));
+      };
+    }
+    return types[kind];
+  }
+  function renderType(type, props) {
+    if (!enabled || !props || props.__stickyDM) return type;
+    if (isDMList(props)) return wrapperFor(type, "list");
+    if (typeName(type) === "MessagesItemChannelContent" && props.channel &&
+        (props.channel.type === 1 || props.channel.type === 3)) {
+      rowNames.add(typeName(type)); rowHooks++;
+      return wrapperFor(type, "row");
+    }
+    return type;
+  }
+  function rowProps(type, props, internal) {
+    if (!enabled || !props || props.__stickyDM && !internal) return props;
+    var name = typeName(type);
     // Target only identifiable DM rows. Never modify shared user/channel objects.
-    if (!name || !/^(PrivateChannel|PrivateChannelRow|DMListItem|DirectMessageListItem|DMRow)$/.test(name)) return props;
+    if (!name || !/^(PrivateChannel|PrivateChannelRow|DMListItem|DirectMessageListItem|DMRow|MessagesItemChannelContent)$/.test(name)) return props;
     var c = props.channel || channel(props.channelId);
     if (!c || (c.type !== 1 && c.type !== 3) || typeof c.id !== "string") return props;
     rowNames.add(name);
     var next = Object.assign({}, props), pinned = pins().indexOf(c.id) >= 0;
-    if (pinned && data.indicator) {
+    if (pinned && data.indicator && name !== "MessagesItemChannelContent") {
       ["name", "title"].forEach(function (key) {
         if (typeof props[key] === "string") next[key] = props[key] + " " + data.indicator;
       });
@@ -106,11 +180,15 @@
     next.__stickyDM = true; rowHooks++; return next;
   }
   function installRows() {
+    if (rowsInstalled) return;
+    rowsInstalled = true;
     [revenge.react.ReactJSXRuntime, React].forEach(function (parent) {
       if (!parent) return;
       ["jsx", "jsxs", "createElement"].forEach(function (key) {
         if (typeof parent[key] !== "function") return;
         keep(revenge.patcher.instead(parent, key, function (args, orig) {
+          var target = renderType(args[0], args[1]);
+          if (target !== args[0]) { args = args.slice(); args[0] = target; }
           var next = rowProps(args[0], args[1]);
           if (next !== args[1]) { args = args.slice(); args[1] = next; }
           return Reflect.apply(orig, this, args);
@@ -150,10 +228,10 @@
       React.createElement(RN.TextInput, { value: search, placeholder: "Search open DMs", placeholderTextColor: "#696d76", style: { color: "#22252b", padding: 12, backgroundColor: "#e9eaed", borderRadius: 12 }, onChangeText: function (value) { search = value; refresh(); } }),
       available.map(function (id) { return React.createElement(RN.View, { key: id }, button("Pin " + label(id), function () { return toggle(id); })); }),
       !all.length ? text("Open the DM list first, then return here. Only existing DMs are listed.") : null,
-      text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
+      text("Compatibility: " + (sortHooks.length ? sortHooks.join(", ") : "DM sort hook not found") + " · List renders: " + listHooks + " · Row hooks: " + rowHooks, { fontSize: 12, marginTop: 20 }),
       text("This beta needs verification on your Discord build. Name indicators and long-press shortcuts depend on the DM row component.", { fontSize: 13, marginTop: 10 }),
       button("Copy compatibility report", function () {
-        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.0", sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
+        revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({ version: "0.1.1", pinnedCount: pins().length, listHooks: listHooks, listSamples: Array.from(listSamples.values()), sortHooks: sortHooks, rowNames: Array.from(rowNames), rowHooks: rowHooks, channelStore: !!channelStore, userStore: !!userStore, accountLoaded: !!account() }, null, 2));
       }));
   }
   function connect() {
@@ -164,6 +242,7 @@
     installRows();
   }
   return { default: plugin({ SettingsComponent: SettingsComponent,
+    preInit: function () { enabled = true; installRows(); },
     init: async function (value) {
       api = value;
       var stored = await api.jsonStorage.get();
@@ -173,8 +252,10 @@
         });
       }
       if (stored && typeof stored.indicator === "string") data.indicator = stored.indicator.slice(0, 12);
+      refresh();
     },
-    start: function (value) { api = value; enabled = true; connect(); refresh(); },
-    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; }
+    start: function (value) { api = value; enabled = true; connect(); refresh();
+      if (api.plugin && api.plugin.startedLate) api.plugin.requireReload(); },
+    stop: function () { enabled = false; cleanups.splice(0).reverse().forEach(function (fn) { fn(); }); refresh(); stores.clear(); patched = new WeakSet(); sortHooks = []; rowNames.clear(); rowHooks = 0; rowsInstalled = false; wrappers.clear(); listSamples.clear(); listHooks = 0; }
   }) };
 })()
