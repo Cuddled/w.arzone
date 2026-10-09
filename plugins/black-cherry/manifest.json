@@ -4,7 +4,7 @@
   "name": "Black Cherry \u2014 First Test",
   "description": "A small native header and composer test: wine-black, burgundy surfaces and ruby highlights.",
   "author": "Cuddled",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "icon": "PaletteIcon",
   "dependencies": {
     "revenge.api": {

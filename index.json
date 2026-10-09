@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "name": "Cuddled · Marble Glass",
+  "name": "Cuddled \u00b7 Marble Glass",
   "description": "White marble and translucent glass for Revenge Next.",
   "plugins": {
     "cuddled.marble-glass": {
@@ -271,14 +271,27 @@
               "version": "*"
             }
           }
+        },
+        "0.1.2": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.black-cherry@0.1.2.zip",
+          "sha256": "8f093346adbbed6ca5b33bd31164ad0ec3944e4475530a8fe229ca4d078230d3",
+          "size": 2887,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       },
-      "name": "Black Cherry — First Test",
+      "name": "Black Cherry \u2014 First Test",
       "description": "A small native header and composer test: wine-black, burgundy surfaces and ruby highlights.",
       "author": "Cuddled",
       "icon": "PaletteIcon",
       "channels": {
-        "latest": "0.1.1"
+        "latest": "0.1.2"
       }
     }
   }
