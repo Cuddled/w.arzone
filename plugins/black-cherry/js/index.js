@@ -2,7 +2,44 @@
 "use strict";
 var enabled=false,cleanups=[],apiRef,store;
 var tintChat=true,headers=0,composers=0,inputs=0,customHeaders=0;
-var samples=new Map(),headerSamples=new Map();
+var samples=new Map(),headerSamples=new Map(),headerTrees=new Map(),headerWrappers=new WeakMap();
+function componentName(type){return typeof type==='string'?type:type&&(type.displayName||type.name);}
+function styleHeaderTree(node,depth,path){
+ var R=revenge.react.React,RN=revenge.react.ReactNative;
+ if(!node||depth>5)return node;
+ if(Array.isArray(node))return node.map(function(child,i){return styleHeaderTree(child,depth,path+'.'+i);});
+ if(!R.isValidElement(node))return node;
+ var name=componentName(node.type),props=node.props||{},style=props.style&&RN.StyleSheet.flatten(props.style);
+ var nativeView=node.type===RN.View||name&&/^(View|RCTView|ReanimatedView|AnimatedComponent\(View\))$/.test(name);
+ var key=path+':'+name;
+ if(headerTrees.size<60&&!headerTrees.has(key))headerTrees.set(key,{component:name,path:path,
+  propNames:Object.keys(props).filter(function(k){return k!=='children';}),
+  layout:style?{height:typeof style.height==='number'?style.height:undefined,flexDirection:style.flexDirection,
+   hasBackground:style.backgroundColor!=null}:undefined});
+ var changed={},dirty=false;
+ // Recolor existing backing surfaces in this header's returned tree only.
+ if(nativeView&&(depth===0||style&&style.backgroundColor!=null)){
+  changed.style=[props.style,{backgroundColor:'#210610'}];dirty=true;customHeaders++;
+ }
+ if(props.children){var children=styleHeaderTree(props.children,depth+1,path+'.children');
+  if(children!==props.children){changed.children=children;dirty=true;}}
+ return dirty?R.cloneElement(node,changed):node;
+}
+function headerType(type,props){
+ var name=componentName(type);
+ var target=name==='NavigationHeader'||name==='ChannelHeader'||
+  name==='Header'&&props&&Object.prototype.hasOwnProperty.call(props,'channelId')&&Object.prototype.hasOwnProperty.call(props,'frame');
+ // Keep React's class, memo and forwardRef renderers intact. Plain function renderers
+ // retain their hook order inside one stable component, with no added native wrapper.
+ if(!target||typeof type!=='function'||type.prototype&&type.prototype.isReactComponent)return type;
+ var wrapped=headerWrappers.get(type);
+ if(!wrapped){wrapped=function BlackCherryHeader(props){
+   var result=Reflect.apply(type,this,arguments);
+   return enabled?styleHeaderTree(result,0,name):result;
+  };wrapped.displayName='BlackCherry('+name+')';wrapped.defaultProps=type.defaultProps;headerWrappers.set(type,wrapped);}
+ return wrapped;
+}
+
 function transform(type,props){
  if(!enabled||!props||props.__blackCherry)return props;
  var name=typeof type==='string'?type:type&&(type.displayName||type.name);
@@ -13,14 +50,6 @@ function transform(type,props){
   put('style',[props.style,{backgroundColor:'#210610'}]);
   put('backgroundColor','#210610');put('color','#f8e6e9');put('titleColor','#f8e6e9');headers++;
  }
- // Observed Android custom-header backing signature; leave unrelated rows alone.
- var observedHeader=name==='ReanimatedView'&&style&&style.height===56&&style.flexDirection==='row'&&
-  style.backgroundColor!=null&&Object.prototype.hasOwnProperty.call(props,'nativeID')&&
-  Object.prototype.hasOwnProperty.call(props,'shouldRasterizeIOS')&&
-  Object.prototype.hasOwnProperty.call(props,'hasEnteringAnimation')&&
-  Object.prototype.hasOwnProperty.call(props,'forwardedRef')&&
-  !props.onPress&&!props.onLongPress&&!props.onResponderRelease;
- if(observedHeader){put('style',[props.style,{backgroundColor:'#210610'}]);customHeaders++;}
  var namedComposer=name&&/^(FloatingChatInputContainer|ChatInputContainer|ChatInputComposer)$/.test(name);
  var observedComposer=name&&/^(View|RCTView|ReanimatedView)$/.test(name)&&props.onLayout&&props.onResponderRelease&&style&&style.borderRadius>=12;
  if(namedComposer||observedComposer){
@@ -65,13 +94,14 @@ function install(){
   ['jsx','jsxs','createElement'].forEach(function(key){
    if(typeof parent[key]!=='function')return;
    cleanups.push(revenge.patcher.instead(parent,key,function(args,original){
-    var p=transform(args[0],args[1]);if(p!==args[1]){args=args.slice();args[1]=p;}
+    var p=transform(args[0],args[1]),type=enabled?headerType(args[0],p):args[0];
+    if(p!==args[1]||type!==args[0]){args=args.slice();args[0]=type;args[1]=p;}
     return Reflect.apply(original,this,args);
    }));
   });
  });
 }
-function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.3',headers:headers,customHeaders:customHeaders,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values())},null,2));}
+function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.4',headers:headers,customHeaders:customHeaders,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values()),headerTrees:Array.from(headerTrees.values())},null,2));}
 function SettingsComponent(){
  var R=revenge.react.React,N=revenge.react.ReactNative,state=R.useState(tintChat);
  function text(s,extra){return R.createElement(N.Text,{__blackCherry:true,style:Object.assign({color:'#f8e6e9',fontSize:16},extra)},s);}

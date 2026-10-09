@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 let report,stored,reloads=0;const original=(type,props,...children)=>({type,props:{...props,children}});
-const R={createElement:original,useState:v=>[v,()=>{}]};const N={Text:'Text',View:'View',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{flatten:s=>Array.isArray(s)?Object.assign({},...s):s}};
+const R={createElement:original,useState:v=>[v,()=>{}],isValidElement:v=>!!(v&&v.type&&v.props),cloneElement:(v,p)=>({...v,props:{...v.props,...p}})};const N={Text:'Text',View:'View',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{flatten:s=>Array.isArray(s)?Object.assign({},...s):s}};
 const revenge={react:{React:R,ReactNative:N},patcher:{instead(p,k,cb){const orig=p[k];p[k]=function(...args){return cb.call(this,args,orig);};return()=>p[k]=orig;}},externals:{ReactNativeClipboard:{Clipboard:{setString:s=>report=s}}}};
 const api={plugin:{requireReload(){reloads++;}},jsonStorage:{async get(){return{};},async set(v){stored=v;}}};
 const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts=vm.runInNewContext('(function(revenge,plugin){return '+code+'\n})(revenge,plugin)',{revenge,plugin:x=>x}).default;
@@ -19,29 +19,31 @@ const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts
  R.createElement('CustomDMHeader',{style:customStyle,title:'PRIVATE'});
  assert.equal(R.createElement('View',{style:customStyle}).props.style,customStyle,'candidate row observed only');
  const backingProps=Object.freeze({style:customStyle,nativeID:'PRIVATE',shouldRasterizeIOS:false,hasEnteringAnimation:false,forwardedRef:ref,ref,collapsable:false});
- const backing=R.createElement('ReanimatedView',backingProps);
- assert.equal(backing.props.style[1].backgroundColor,'#210610');assert.equal(backing.props.ref,ref);
- assert.equal(backing.props.forwardedRef,ref);assert.equal(backing.props.collapsable,false);
- assert.equal(backingProps.style.backgroundColor,'#19191c');
- for(const key of ['nativeID','shouldRasterizeIOS','hasEnteringAnimation','forwardedRef']){
-  const incomplete={...backingProps};delete incomplete[key];
-  assert.equal(R.createElement('ReanimatedView',incomplete).props.style,customStyle,'incomplete header signature untouched');
- }
- for(const overrides of [{onPress:handler},{onLongPress:handler},{onResponderRelease:handler},{style:{...customStyle,height:88}},{style:{...customStyle,backgroundColor:undefined}}]){
-  const unrelated={...backingProps,...overrides};
-  assert.equal(R.createElement('ReanimatedView',unrelated).props.style,unrelated.style,'interactive/non-header row untouched');
- }
+ assert.equal(R.createElement('ReanimatedView',backingProps).props.style,customStyle,'old global heuristic removed');
+ const inner=Object.freeze({type:'View',key:'inner',ref,props:Object.freeze({style:customStyle,onPress:handler,ref,children:'PRIVATE'})});
+ const tree=Object.freeze({type:'View',key:'root',ref,props:Object.freeze({style:customStyle,onLayout:handler,children:inner})});
+ function NavigationHeader(props){assert.equal(props.channel,'PRIVATE');R.useState(1);return tree;}
+ const wrapped=R.createElement(NavigationHeader,{channel:'PRIVATE'});
+ assert.notEqual(wrapped.type,NavigationHeader);
+ assert.equal(R.createElement(NavigationHeader,{channel:'PRIVATE'}).type,wrapped.type,'stable component identity');
+ const rendered=wrapped.type(wrapped.props);
+ assert.equal(rendered.props.style[1].backgroundColor,'#210610');assert.equal(rendered.key,'root');assert.equal(rendered.ref,ref);
+ assert.equal(rendered.props.onLayout,handler);assert.equal(rendered.props.children.props.onPress,handler);
+ assert.equal(rendered.props.children.props.style[1].backgroundColor,'#210610');
+ assert.equal(tree.props.style,customStyle);assert.equal(inner.props.style,customStyle);
+ function UnrelatedHeader(){return tree;}
+ assert.equal(R.createElement(UnrelatedHeader,{}).type,UnrelatedHeader,'unrelated component untouched');
  assert.equal(R.createElement('DCDChatInput',{placeholder:'PRIVATE'}).props.textColor,'#f8e6e9');
  const avatarStyle={backgroundColor:'#23a55a',borderRadius:24,width:48,height:48};assert.equal(R.createElement('View',{style:avatarStyle}).props.style,avatarStyle,'avatars and status untouched');
  const messageStyle={color:'#ffffff'};assert.equal(R.createElement('Text',{style:messageStyle}).props.style,messageStyle);
  const children=opts.SettingsComponent().props.children;const buttons=children.filter(c=>c.type==='Pressable');buttons[1].props.onPress();assert.ok(!report.includes('PRIVATE'),'reports exclude user field values');assert.equal(JSON.parse(report).composers,2);
- const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.3');assert.equal(diagnostics.customHeaders,1);
+ const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.4');assert.equal(diagnostics.customHeaders,2);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='RNSScreenStackHeaderConfig').hidden,true);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='CustomDMHeader').renders,2);
  assert.ok(diagnostics.headerSamples.some(s=>s.kind==='row-candidate'));
  for(let i=0;i<100;i++)R.createElement('CustomHeader'+i,{title:'PRIVATE'});
  buttons[1].props.onPress();assert.equal(JSON.parse(report).headerSamples.length,60,'bounded header report');assert.ok(!report.includes('PRIVATE'));
  await buttons[0].props.onPress();assert.equal(stored.tintChat,false);assert.equal(R.createElement('DCDChat',{style:avatarStyle}).props.style,avatarStyle);
- opts.stop(api);assert.equal(R.createElement,original);assert.equal(reloads,2,"only settings and disabling request reload");
+ opts.stop(api);assert.equal(wrapped.type(wrapped.props),tree,'mounted adapter becomes inert after disabling');assert.equal(R.createElement,original);assert.equal(reloads,2,"only settings and disabling request reload");
  api.plugin.startedLate=true;await opts.init(api);opts.start(api);assert.equal(reloads,2,"late startup must not request reload either");opts.stop(api);assert.equal(R.createElement,original);console.log('PASS: loader, late hooks, immutable native props, touch/ref preservation, scope, privacy, settings and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});
