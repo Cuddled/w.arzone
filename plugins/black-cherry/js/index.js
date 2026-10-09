@@ -1,7 +1,7 @@
 (function(){
 "use strict";
 var enabled=false,cleanups=[],apiRef,store;
-var tintChat=true,headers=0,composers=0,inputs=0;
+var tintChat=true,headers=0,composers=0,inputs=0,customHeaders=0;
 var samples=new Map(),headerSamples=new Map();
 function transform(type,props){
  if(!enabled||!props||props.__blackCherry)return props;
@@ -13,6 +13,14 @@ function transform(type,props){
   put('style',[props.style,{backgroundColor:'#210610'}]);
   put('backgroundColor','#210610');put('color','#f8e6e9');put('titleColor','#f8e6e9');headers++;
  }
+ // Observed Android custom-header backing signature; leave unrelated rows alone.
+ var observedHeader=name==='ReanimatedView'&&style&&style.height===56&&style.flexDirection==='row'&&
+  style.backgroundColor!=null&&Object.prototype.hasOwnProperty.call(props,'nativeID')&&
+  Object.prototype.hasOwnProperty.call(props,'shouldRasterizeIOS')&&
+  Object.prototype.hasOwnProperty.call(props,'hasEnteringAnimation')&&
+  Object.prototype.hasOwnProperty.call(props,'forwardedRef')&&
+  !props.onPress&&!props.onLongPress&&!props.onResponderRelease;
+ if(observedHeader){put('style',[props.style,{backgroundColor:'#210610'}]);customHeaders++;}
  var namedComposer=name&&/^(FloatingChatInputContainer|ChatInputContainer|ChatInputComposer)$/.test(name);
  var observedComposer=name&&/^(View|RCTView|ReanimatedView)$/.test(name)&&props.onLayout&&props.onResponderRelease&&style&&style.borderRadius>=12;
  if(namedComposer||observedComposer){
@@ -63,7 +71,7 @@ function install(){
   });
  });
 }
-function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.2',headers:headers,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values())},null,2));}
+function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.3',headers:headers,customHeaders:customHeaders,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values())},null,2));}
 function SettingsComponent(){
  var R=revenge.react.React,N=revenge.react.ReactNative,state=R.useState(tintChat);
  function text(s,extra){return R.createElement(N.Text,{__blackCherry:true,style:Object.assign({color:'#f8e6e9',fontSize:16},extra)},s);}

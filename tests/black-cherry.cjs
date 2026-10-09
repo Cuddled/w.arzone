@@ -18,11 +18,24 @@ const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts
  assert.equal(R.createElement('CustomDMHeader',{style:customStyle,title:'PRIVATE'}).props.style,customStyle,'unknown header observed only');
  R.createElement('CustomDMHeader',{style:customStyle,title:'PRIVATE'});
  assert.equal(R.createElement('View',{style:customStyle}).props.style,customStyle,'candidate row observed only');
+ const backingProps=Object.freeze({style:customStyle,nativeID:'PRIVATE',shouldRasterizeIOS:false,hasEnteringAnimation:false,forwardedRef:ref,ref,collapsable:false});
+ const backing=R.createElement('ReanimatedView',backingProps);
+ assert.equal(backing.props.style[1].backgroundColor,'#210610');assert.equal(backing.props.ref,ref);
+ assert.equal(backing.props.forwardedRef,ref);assert.equal(backing.props.collapsable,false);
+ assert.equal(backingProps.style.backgroundColor,'#19191c');
+ for(const key of ['nativeID','shouldRasterizeIOS','hasEnteringAnimation','forwardedRef']){
+  const incomplete={...backingProps};delete incomplete[key];
+  assert.equal(R.createElement('ReanimatedView',incomplete).props.style,customStyle,'incomplete header signature untouched');
+ }
+ for(const overrides of [{onPress:handler},{onLongPress:handler},{onResponderRelease:handler},{style:{...customStyle,height:88}},{style:{...customStyle,backgroundColor:undefined}}]){
+  const unrelated={...backingProps,...overrides};
+  assert.equal(R.createElement('ReanimatedView',unrelated).props.style,unrelated.style,'interactive/non-header row untouched');
+ }
  assert.equal(R.createElement('DCDChatInput',{placeholder:'PRIVATE'}).props.textColor,'#f8e6e9');
  const avatarStyle={backgroundColor:'#23a55a',borderRadius:24,width:48,height:48};assert.equal(R.createElement('View',{style:avatarStyle}).props.style,avatarStyle,'avatars and status untouched');
  const messageStyle={color:'#ffffff'};assert.equal(R.createElement('Text',{style:messageStyle}).props.style,messageStyle);
  const children=opts.SettingsComponent().props.children;const buttons=children.filter(c=>c.type==='Pressable');buttons[1].props.onPress();assert.ok(!report.includes('PRIVATE'),'reports exclude user field values');assert.equal(JSON.parse(report).composers,2);
- const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.2');
+ const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.3');assert.equal(diagnostics.customHeaders,1);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='RNSScreenStackHeaderConfig').hidden,true);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='CustomDMHeader').renders,2);
  assert.ok(diagnostics.headerSamples.some(s=>s.kind==='row-candidate'));
