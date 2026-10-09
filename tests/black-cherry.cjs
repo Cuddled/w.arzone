@@ -31,13 +31,25 @@ const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts
  assert.equal(rendered.props.onLayout,handler);assert.equal(rendered.props.children.props.onPress,handler);
  assert.equal(rendered.props.children.props.style[1].backgroundColor,'#210610');
  assert.equal(tree.props.style,customStyle);assert.equal(inner.props.style,customStyle);
+ const tracking=Object.freeze({span:'PRIVATE'});
+ const backingTree=Object.freeze({type:'NavTTIView',key:'backing',ref,props:Object.freeze({style:customStyle,tracking,spanComponent:'PRIVATE',children:'PRIVATE'})});
+ const fragmentTree=Object.freeze({type:'Fragment',props:Object.freeze({children:[backingTree]})});
+ function Header(){return fragmentTree;}
+ const channelHeader=R.createElement(Header,{channelId:'PRIVATE',frame:{}});
+ const headerResult=channelHeader.type(channelHeader.props).props.children[0];
+ assert.equal(headerResult.props.style[1].backgroundColor,'#210610');
+ assert.equal(headerResult.props.tracking,tracking);assert.equal(headerResult.props.spanComponent,'PRIVATE');
+ assert.equal(headerResult.props.children,'PRIVATE');assert.equal(headerResult.key,'backing');assert.equal(headerResult.ref,ref);
+ assert.equal(backingTree.props.style,customStyle,'tracking wrapper style immutable');
+ assert.equal(R.createElement('NavTTIView',backingTree.props).props.style,customStyle,'no global tracking-view tint');
+ assert.equal(R.createElement(Header,{}).type,Header,'non-channel Header untouched');
  function UnrelatedHeader(){return tree;}
  assert.equal(R.createElement(UnrelatedHeader,{}).type,UnrelatedHeader,'unrelated component untouched');
  assert.equal(R.createElement('DCDChatInput',{placeholder:'PRIVATE'}).props.textColor,'#f8e6e9');
  const avatarStyle={backgroundColor:'#23a55a',borderRadius:24,width:48,height:48};assert.equal(R.createElement('View',{style:avatarStyle}).props.style,avatarStyle,'avatars and status untouched');
  const messageStyle={color:'#ffffff'};assert.equal(R.createElement('Text',{style:messageStyle}).props.style,messageStyle);
  const children=opts.SettingsComponent().props.children;const buttons=children.filter(c=>c.type==='Pressable');buttons[1].props.onPress();assert.ok(!report.includes('PRIVATE'),'reports exclude user field values');assert.equal(JSON.parse(report).composers,2);
- const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.4');assert.equal(diagnostics.customHeaders,2);
+ const diagnostics=JSON.parse(report);assert.equal(diagnostics.version,'0.1.5');assert.equal(diagnostics.customHeaders,3);assert.equal(diagnostics.headerBackings,1);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='RNSScreenStackHeaderConfig').hidden,true);
  assert.equal(diagnostics.headerSamples.find(s=>s.component==='CustomDMHeader').renders,2);
  assert.ok(diagnostics.headerSamples.some(s=>s.kind==='row-candidate'));

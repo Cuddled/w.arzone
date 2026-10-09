@@ -1,7 +1,7 @@
 (function(){
 "use strict";
 var enabled=false,cleanups=[],apiRef,store;
-var tintChat=true,headers=0,composers=0,inputs=0,customHeaders=0;
+var tintChat=true,headers=0,composers=0,inputs=0,customHeaders=0,headerBackings=0;
 var samples=new Map(),headerSamples=new Map(),headerTrees=new Map(),headerWrappers=new WeakMap();
 function componentName(type){return typeof type==='string'?type:type&&(type.displayName||type.name);}
 function styleHeaderTree(node,depth,path){
@@ -11,6 +11,8 @@ function styleHeaderTree(node,depth,path){
  if(!R.isValidElement(node))return node;
  var name=componentName(node.type),props=node.props||{},style=props.style&&RN.StyleSheet.flatten(props.style);
  var nativeView=node.type===RN.View||name&&/^(View|RCTView|ReanimatedView|AnimatedComponent\(View\))$/.test(name);
+ // NavTTIView owns the observed channel header fill and forwards its style.
+ var headerBacking=name==='NavTTIView'&&path.indexOf('Header.children')===0&&style&&style.backgroundColor!=null;
  var key=path+':'+name;
  if(headerTrees.size<60&&!headerTrees.has(key))headerTrees.set(key,{component:name,path:path,
   propNames:Object.keys(props).filter(function(k){return k!=='children';}),
@@ -18,8 +20,8 @@ function styleHeaderTree(node,depth,path){
    hasBackground:style.backgroundColor!=null}:undefined});
  var changed={},dirty=false;
  // Recolor existing backing surfaces in this header's returned tree only.
- if(nativeView&&(depth===0||style&&style.backgroundColor!=null)){
-  changed.style=[props.style,{backgroundColor:'#210610'}];dirty=true;customHeaders++;
+ if(headerBacking||nativeView&&(depth===0||style&&style.backgroundColor!=null)){
+  changed.style=[props.style,{backgroundColor:'#210610'}];dirty=true;customHeaders++;if(headerBacking)headerBackings++;
  }
  if(props.children){var children=styleHeaderTree(props.children,depth+1,path+'.children');
   if(children!==props.children){changed.children=children;dirty=true;}}
@@ -101,7 +103,7 @@ function install(){
   });
  });
 }
-function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.4',headers:headers,customHeaders:customHeaders,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values()),headerTrees:Array.from(headerTrees.values())},null,2));}
+function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.5',headers:headers,customHeaders:customHeaders,headerBackings:headerBackings,composers:composers,inputs:inputs,samples:Array.from(samples.values()),headerSamples:Array.from(headerSamples.values()),headerTrees:Array.from(headerTrees.values())},null,2));}
 function SettingsComponent(){
  var R=revenge.react.React,N=revenge.react.ReactNative,state=R.useState(tintChat);
  function text(s,extra){return R.createElement(N.Text,{__blackCherry:true,style:Object.assign({color:'#f8e6e9',fontSize:16},extra)},s);}

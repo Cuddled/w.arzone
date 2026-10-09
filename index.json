@@ -310,6 +310,19 @@
               "version": "*"
             }
           }
+        },
+        "0.1.5": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.black-cherry@0.1.5.zip",
+          "sha256": "4ba635338657be295d5f37dcc5ce5121ed1cb2589a7f9849e7949699e613c050",
+          "size": 3739,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
         }
       },
       "name": "Black Cherry \u2014 First Test",
@@ -317,7 +330,7 @@
       "author": "Cuddled",
       "icon": "PaletteIcon",
       "channels": {
-        "latest": "0.1.4"
+        "latest": "0.1.5"
       }
     }
   }
