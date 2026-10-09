@@ -5,7 +5,7 @@ const revenge={react:{React:R,ReactNative:N},patcher:{instead(p,k,cb){const orig
 const api={plugin:{requireReload(){reloads++;}},jsonStorage:{async get(){return{};},async set(v){stored=v;}}};
 const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts=vm.runInNewContext('(function(revenge,plugin){return '+code+'\n})(revenge,plugin)',{revenge,plugin:x=>x}).default;
 (async()=>{
- await opts.init(api);assert.equal(R.createElement,original,'no early runtime hook');opts.start(api);
+ await opts.init(api);assert.equal(R.createElement,original,'no early runtime hook');opts.start(api);assert.equal(reloads,0,"normal startup must not request reload");opts.start(api);assert.equal(reloads,0,"repeated start must not request reload");
  const handler=()=>{};const ref={};const props=Object.freeze({style:Object.freeze({borderRadius:24}),onLayout:handler,onResponderRelease:handler,ref,channelId:'PRIVATE'});
  const composer=R.createElement('RCTView',props);assert.equal(composer.props.style[1].backgroundColor,'#260912');assert.equal(composer.props.onLayout,handler);assert.equal(composer.props.ref,ref);assert.equal(props.style.borderWidth,undefined);
  const named=R.createElement('FloatingChatInputContainer',{style:{borderWidth:0}});assert.equal(named.props.style[1].borderColor,'#a63455');
@@ -15,5 +15,6 @@ const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts
  const messageStyle={color:'#ffffff'};assert.equal(R.createElement('Text',{style:messageStyle}).props.style,messageStyle);
  const children=opts.SettingsComponent().props.children;const buttons=children.filter(c=>c.type==='Pressable');buttons[1].props.onPress();assert.ok(!report.includes('PRIVATE'),'reports exclude user field values');assert.equal(JSON.parse(report).composers,2);
  await buttons[0].props.onPress();assert.equal(stored.tintChat,false);assert.equal(R.createElement('DCDChat',{style:avatarStyle}).props.style,avatarStyle);
- opts.stop(api);assert.equal(R.createElement,original);assert.ok(reloads>=3);console.log('PASS: loader, late hooks, immutable native props, touch/ref preservation, scope, privacy, settings and cleanup');
+ opts.stop(api);assert.equal(R.createElement,original);assert.equal(reloads,2,"only settings and disabling request reload");
+ api.plugin.startedLate=true;await opts.init(api);opts.start(api);assert.equal(reloads,2,"late startup must not request reload either");opts.stop(api);assert.equal(R.createElement,original);console.log('PASS: loader, late hooks, immutable native props, touch/ref preservation, scope, privacy, settings and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});

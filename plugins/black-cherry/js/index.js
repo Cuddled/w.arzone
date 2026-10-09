@@ -43,7 +43,7 @@ function install(){
   });
  });
 }
-function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.0',headers:headers,composers:composers,inputs:inputs,samples:Array.from(samples.values())},null,2));}
+function copyReport(){revenge.externals.ReactNativeClipboard.Clipboard.setString(JSON.stringify({version:'0.1.1',headers:headers,composers:composers,inputs:inputs,samples:Array.from(samples.values())},null,2));}
 function SettingsComponent(){
  var R=revenge.react.React,N=revenge.react.ReactNative,state=R.useState(tintChat);
  function text(s,extra){return R.createElement(N.Text,{__blackCherry:true,style:Object.assign({color:'#f8e6e9',fontSize:16},extra)},s);}
@@ -58,7 +58,7 @@ function SettingsComponent(){
 }
 return {default:plugin({SettingsComponent:SettingsComponent,
  init:async function(api){apiRef=api;store=api.jsonStorage;if(store){var saved=await store.get();if(saved&&typeof saved.tintChat==='boolean')tintChat=saved.tintChat;}},
- start:function(api){apiRef=api;enabled=true;install();api.plugin.requireReload();},
+ start:function(api){apiRef=api;enabled=true;install();},
  stop:function(api){enabled=false;cleanups.splice(0).reverse().forEach(function(fn){fn();});apiRef=undefined;store=undefined;api.plugin.requireReload();}
 })};
 })()
