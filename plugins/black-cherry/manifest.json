@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "id": "cuddled.black-cherry",
+  "name": "Black Cherry \u2014 First Test",
+  "description": "A small native header and composer test: wine-black, burgundy surfaces and ruby highlights.",
+  "author": "Cuddled",
+  "version": "0.1.0",
+  "icon": "PaletteIcon",
+  "dependencies": {
+    "revenge.api": {
+      "version": ">=1 <2"
+    },
+    "discord": {
+      "version": "*"
+    }
+  },
+  "dist": {
+    "script": "index.js"
+  }
+}

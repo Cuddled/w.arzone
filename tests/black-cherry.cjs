@@ -1,0 +1,19 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+let report,stored,reloads=0;const original=(type,props,...children)=>({type,props:{...props,children}});
+const R={createElement:original,useState:v=>[v,()=>{}]};const N={Text:'Text',View:'View',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{flatten:s=>Array.isArray(s)?Object.assign({},...s):s}};
+const revenge={react:{React:R,ReactNative:N},patcher:{instead(p,k,cb){const orig=p[k];p[k]=function(...args){return cb.call(this,args,orig);};return()=>p[k]=orig;}},externals:{ReactNativeClipboard:{Clipboard:{setString:s=>report=s}}}};
+const api={plugin:{requireReload(){reloads++;}},jsonStorage:{async get(){return{};},async set(v){stored=v;}}};
+const code=fs.readFileSync('plugins/black-cherry/js/index.js','utf8');const opts=vm.runInNewContext('(function(revenge,plugin){return '+code+'\n})(revenge,plugin)',{revenge,plugin:x=>x}).default;
+(async()=>{
+ await opts.init(api);assert.equal(R.createElement,original,'no early runtime hook');opts.start(api);
+ const handler=()=>{};const ref={};const props=Object.freeze({style:Object.freeze({borderRadius:24}),onLayout:handler,onResponderRelease:handler,ref,channelId:'PRIVATE'});
+ const composer=R.createElement('RCTView',props);assert.equal(composer.props.style[1].backgroundColor,'#260912');assert.equal(composer.props.onLayout,handler);assert.equal(composer.props.ref,ref);assert.equal(props.style.borderWidth,undefined);
+ const named=R.createElement('FloatingChatInputContainer',{style:{borderWidth:0}});assert.equal(named.props.style[1].borderColor,'#a63455');
+ assert.equal(R.createElement('RNSScreenStackHeaderConfig',{}).props.titleColor,'#f8e6e9');
+ assert.equal(R.createElement('DCDChatInput',{placeholder:'PRIVATE'}).props.textColor,'#f8e6e9');
+ const avatarStyle={backgroundColor:'#23a55a',borderRadius:24,width:48,height:48};assert.equal(R.createElement('View',{style:avatarStyle}).props.style,avatarStyle,'avatars and status untouched');
+ const messageStyle={color:'#ffffff'};assert.equal(R.createElement('Text',{style:messageStyle}).props.style,messageStyle);
+ const children=opts.SettingsComponent().props.children;const buttons=children.filter(c=>c.type==='Pressable');buttons[1].props.onPress();assert.ok(!report.includes('PRIVATE'),'reports exclude user field values');assert.equal(JSON.parse(report).composers,2);
+ await buttons[0].props.onPress();assert.equal(stored.tintChat,false);assert.equal(R.createElement('DCDChat',{style:avatarStyle}).props.style,avatarStyle);
+ opts.stop(api);assert.equal(R.createElement,original);assert.ok(reloads>=3);console.log('PASS: loader, late hooks, immutable native props, touch/ref preservation, scope, privacy, settings and cleanup');
+})().catch(e=>{console.error(e);process.exitCode=1;});

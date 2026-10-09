@@ -243,6 +243,30 @@
           }
         }
       }
+    },
+    "cuddled.black-cherry": {
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.black-cherry@0.1.0.zip",
+          "sha256": "fcbe8fb1ec7ee427b86587bc0651f457fc741eff6840a85721994fe92f754aa4",
+          "size": 2462,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      },
+      "name": "Black Cherry — First Test",
+      "description": "A small native header and composer test: wine-black, burgundy surfaces and ruby highlights.",
+      "author": "Cuddled",
+      "icon": "PaletteIcon",
+      "channels": {
+        "latest": "0.1.0"
+      }
     }
   }
 }
