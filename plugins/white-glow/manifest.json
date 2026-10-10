@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "id": "cuddled.white-glow",
+  "name": "White Glow",
+  "description": "Steady white highlights on existing panels and controls, with optional soft text glow. Preserves your theme colors.",
+  "author": "Cuddled",
+  "version": "0.1.0",
+  "icon": "PaletteIcon",
+  "dependencies": {
+    "revenge.api": {
+      "version": ">=1 <2"
+    },
+    "discord": {
+      "version": "*"
+    }
+  },
+  "dist": {
+    "script": "index.js"
+  }
+}

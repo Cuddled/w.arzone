@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "name": "Cuddled \u00b7 Marble Glass",
+  "name": "Cuddled · Marble Glass",
   "description": "White marble and translucent glass for Revenge Next.",
   "plugins": {
     "cuddled.marble-glass": {
@@ -325,12 +325,36 @@
           }
         }
       },
-      "name": "Black Cherry \u2014 First Test",
+      "name": "Black Cherry — First Test",
       "description": "A small native header and composer test: wine-black, burgundy surfaces and ruby highlights.",
       "author": "Cuddled",
       "icon": "PaletteIcon",
       "channels": {
         "latest": "0.1.5"
+      }
+    },
+    "cuddled.white-glow": {
+      "versions": {
+        "0.1.0": {
+          "url": "https://raw.githubusercontent.com/Cuddled/w.arzone/main/pool/cuddled.white-glow@0.1.0.zip",
+          "sha256": "aefd2d5437a447392f67f04588211c5a7f2870f041aa410d5725b61ed3ce2d2a",
+          "size": 2800,
+          "dependencies": {
+            "revenge.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      },
+      "name": "White Glow",
+      "description": "Steady white highlights on existing panels and controls, with optional soft text glow. Preserves your theme colors.",
+      "author": "Cuddled",
+      "icon": "PaletteIcon",
+      "channels": {
+        "latest": "0.1.0"
       }
     }
   }

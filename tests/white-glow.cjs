@@ -1,0 +1,22 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let reloads=0,saved,report;
+const original=(type,props,...children)=>({type,props:{...props,children}});
+const R={createElement:original,useState:v=>[v,()=>{}]};const N={Platform:{OS:'android',Version:35},StyleSheet:{flatten(s){return Array.isArray(s)?Object.assign({},...s.map(v=>this.flatten(v))):s;}},Text:'Text',View:'View',Pressable:'Pressable',ScrollView:'ScrollView'};
+const revenge={react:{React:R,ReactNative:N},patcher:{instead(parent,key,cb){const orig=parent[key];parent[key]=function(...args){return cb.call(this,args,orig);};return()=>parent[key]=orig;}},externals:{ReactNativeClipboard:{Clipboard:{setString(v){report=v;}}}}};
+const api={plugin:{requireReload(){reloads++;}},jsonStorage:{async get(){return{strength:'normal',textGlow:true};},async set(v){saved=v;}}};
+const source=fs.readFileSync('plugins/white-glow/js/index.js','utf8');const p=vm.runInNewContext('(function(revenge,plugin){return '+source+'\n})(revenge,plugin)',{revenge,plugin:x=>x}).default;
+(async()=>{
+await p.init(api);assert.equal(R.createElement,original);p.start(api);p.start(api);assert.equal(reloads,0,'no startup reload loop');
+const handler=()=>{};const ref={};const props=Object.freeze({style:Object.freeze({backgroundColor:'#b73355',borderRadius:18,borderWidth:2}),onPress:handler,ref});
+const panel=R.createElement('View',props);const flat=N.StyleSheet.flatten(panel.props.style);
+assert.equal(flat.backgroundColor,'#b73355','current theme background preserved');assert.equal(flat.borderWidth,2);assert.match(flat.boxShadow,/255,255,255/);assert.equal(flat.shadowColor,'#ffffff');assert.equal(flat.elevation,undefined,'no z-order mutation');assert.equal(panel.props.onPress,handler);assert.equal(panel.props.ref,ref);assert.equal(props.style.boxShadow,undefined,'shared style immutable');
+const twice=R.createElement('View',panel.props);assert.equal(twice.props.style,panel.props.style,'no compounded glow');
+const text=R.createElement('Text',{style:{color:'#23a55a',fontSize:17},userId:'PRIVATE'});const textFlat=N.StyleSheet.flatten(text.props.style);assert.equal(textFlat.color,'#23a55a');assert.equal(textFlat.textShadowRadius,2);assert.equal(textFlat.fontSize,17);
+const layout={flex:1,backgroundColor:'#222222'};assert.equal(R.createElement('View',{style:layout}).props.style,layout,'screen wrapper unchanged');
+const image={tintColor:'#ff6600'};assert.equal(R.createElement('Image',{style:image}).props.style,image,'avatars and icon tint untouched');
+N.Platform.Version=26;const old=N.StyleSheet.flatten(R.createElement('Pressable',{style:{backgroundColor:'#333333',borderRadius:16}}).props.style);assert.equal(old.boxShadow,undefined);assert.ok(old.borderWidth>0,'older Android keeps outline');N.Platform.Version=35;
+const buttons=p.SettingsComponent().props.children.filter(c=>c.type==='Pressable');await buttons[0].props.onPress();assert.equal(saved.strength,'bright');await buttons[1].props.onPress();assert.equal(saved.textGlow,false);const t={color:'#abcdef'};assert.equal(R.createElement('Text',{style:t}).props.style,t);
+buttons[2].props.onPress();assert.ok(!report.includes('PRIVATE'));assert.equal(JSON.parse(report).strength,'bright');
+p.stop(api);assert.equal(R.createElement,original);await p.init(api);p.start(api);assert.equal(reloads,3,'restart adds no reload request');p.stop(api);assert.equal(R.createElement,original);
+console.log('PASS: loader, safe startup/restart, palette preservation, immutable styles, handlers/refs, glow idempotence, older Android fallback, settings, privacy, cleanup');
+})().catch(e=>{console.error(e);process.exitCode=1;});
